@@ -118,8 +118,9 @@ test_*/
 *.test/
 
 figs/
+output/
 
-
+gen
 
 .bkp
 ./pibeam_set6_mod.data
