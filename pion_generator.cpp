@@ -71,7 +71,7 @@ int main( int argc, const char **argv )
   const bool do_ms_pitrk2 = (atoi(argv[6])%10 == 1);
   cout << "do_ms_pitrk1 = " << (do_ms_pitrk1?1:0) << "  do_ms_pitrk2 = " << (do_ms_pitrk2?1:0) << endl;
 
-  TString outfile=Form("output/report.v4/ms%d%d_ds%d%d%s_xy%3.1fmm_dth%d_dph%d_p%4.2f.evt",
+  TString outfile=Form("output/ms%d%d_ds%d%d%s_xy%3.1fmm_dth%d_dph%d_p%4.2f.evt",
 		       do_ms_pitrk1?1:0, do_ms_pitrk2?1:0, digi_pitrk?1:0, digi_diam?1:0,
 		       (argc==8?Form("_seg%3.1f",diam_seg):""), xyr, (int)dth, (int)dph, pbeam);
 
@@ -179,7 +179,7 @@ int main( int argc, const char **argv )
   pionbeam.setRecoParams(det_idx);
 
   vector<HBeamElement>& elements  = pionbeam.getElements();
-  //vector<HBeamElement>& detectors = pionbeam.getDetectors();
+  vector<HBeamElement>& detectors = pionbeam.getDetectors();
 
   if(elementNames.size() != elements.size()) {
     cout<<"Number of elements differs from name map! nelements = "<<elements.size()<<", map size = "<<elementNames.size()<<endl;
@@ -338,19 +338,21 @@ int main( int argc, const char **argv )
       if(asciiFile) fprintf(asciiFile," %i %i %f %f %i\n",ctEvt,nParticle,blast,event_impact_param,flag);
       ctEvents ++;
 
-      Int_t n             = 0;
+      Int_t nPart             = 0;
       Int_t ctTryParticle = 0;
-      while (n < nParticle && ctTryParticle <= maxTry)
+      while (nPart < nParticle && ctTryParticle <= maxTry)
 	{
 
-	  _acc = 0;
 	  vector<TLorentzVector> vPion;
 
 	  //-----------------------------------------------------------
 	  // create particles
 	  Bool_t reDo = kTRUE;
 	  Int_t ctTry = 0;
-	  while(reDo && ctTry <= maxTry){  // try as long a particle is accepted by the beam line
+	  while(reDo && ctTry < maxTry){  // try as long a particle is accepted by the beam line
+
+	    _acc = 0;
+
 	    ctTotalTry ++;
 	    ctTry++;
 
@@ -371,10 +373,6 @@ int main( int argc, const char **argv )
 	    //vsolution[0].fName= SOLUTION_BEAM_INITIAL
 	    //vsolution[1].fName= SOLUTION_DIAM
 	    //vsolution[2].fName= SOLUTION_HADES
-
-	    if(vhistory[vhistory.size()-1].fAccepted){
-	      reDo = kFALSE;
-	    }
 
 	    vPion.clear();
 	    for(UInt_t i = 0; i < vhistory.size(); i++){
@@ -455,13 +453,23 @@ int main( int argc, const char **argv )
 	      if(Accepted) hAccCumul->Fill(i);
 	    }
 
+	    //for (int idet=0; idet < ndet; ++idet) {
+	    //  if(!detectors[idet].fAccepted) Accepted = kFALSE;
+	    //}
+
 	    _acc = Accepted?1:0;
+
+	    //cout << "OOOO accepted ctEvt= " << ctEvt << " ctTry= " << ctTry << " ctTotalTry= " << ctTotalTry << " acc=" << _acc << endl;
+
+	    if(Accepted){
+	      reDo = kFALSE;
+	    }
+
 	    tt->Fill();
-	    //-----------------------------------------------------------
 
 	  } // end while redo
 
-	  if(ctTry == maxTry){ //
+	  if(ctTry == maxTry && !_acc){ //
 	    ctTryParticle++;
 	    cout<<"evt "<<ctEvt<<" no accepted beam particle after "<<ctTry<<" attempts! redo one particle "<<ctTryParticle<<endl;
 
@@ -480,7 +488,7 @@ int main( int argc, const char **argv )
 	    continue;
 	  }
 
-	  n++; // succesfull
+	  nPart++; // succesfull
 
 	  //-----------------------------------------------------------
 	  //-----------------------------------------------------------
