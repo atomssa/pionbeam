@@ -52,6 +52,7 @@ int main( int argc, const char **argv )
   cout << "argc= " << argc << " nEvents= " << atoi(argv[1]) << endl;
 
   const double pbeam = 1.3; // for the moment stick to this
+  //const double pbeam = 0.7;
 
   const int nEvents=atoi(argv[1]);
   const double dph = atof(argv[2]);
@@ -176,7 +177,7 @@ int main( int argc, const char **argv )
   det_idx.push_back(1); // pion tracker 2
   det_idx.push_back(3); // diamond start
   det_idx.push_back(4); // HADES
-  pionbeam.setRecoParams(det_idx);
+  pionbeam.set_detector_names("det1", "det2", "diamond", "hades");
 
   vector<HBeamElement>& elements  = pionbeam.getElements();
   vector<HBeamElement>& detectors = pionbeam.getDetectors();
@@ -215,11 +216,18 @@ int main( int argc, const char **argv )
   const unsigned int ndet = vhistory.size();
   vector<HBeamParticle>& vms_history = pionbeam.get_ms_history();
   const unsigned int nmspt = vms_history.size();
+  vector<HBeamParticle>& vpd_history = pionbeam.get_pd_history();
+  const unsigned int npdpt = vpd_history.size();
   vector<HBeamParticle>& vsolution = pionbeam.get_solution();
   const unsigned int nrec = vsolution.size();
 
+  cout << "------------" << endl;
   for (unsigned int kk=0; kk<vhistory.size(); ++kk) cout << "history["<< kk << "].fName= " << vhistory[kk].fName << endl;
+  cout << "------------" << endl;
   for (unsigned int kk=0; kk<vms_history.size(); ++kk) cout << "vms_history["<< kk << "].fName= " << vms_history[kk].fName << endl;
+  cout << "------------" << endl;
+  for (unsigned int kk=0; kk<vpd_history.size(); ++kk) cout << "vpd_history["<< kk << "].fName= " << vpd_history[kk].fName << endl;
+  cout << "------------" << endl;
   for (unsigned int kk=0; kk<vsolution.size(); ++kk) cout << "vsolution["<< kk << "].fName= " << vsolution[kk].fName << endl;
 
   TTree *tt = new TTree("t","t");
@@ -242,12 +250,21 @@ int main( int argc, const char **argv )
 
   // msi == multiple scattering initial state
   int _nmspt = nmspt;  tt->Branch("nmspt",&_nmspt,"nmspt/I");
+  float _xms[nmspt];  tt->Branch("xms[nmspt]",&_xms,"xms[nmspt]/F");
+  float _thms[nmspt]; tt->Branch("thms[nmspt]",&_thms,"thms[nmspt]/F");
+  float _yms[nmspt];  tt->Branch("yms[nmspt]",&_yms,"yms[nmspt]/F");
+  float _phms[nmspt]; tt->Branch("phms[nmspt]",&_phms,"phms[nmspt]/F");
+  float _pms[nmspt]; tt->Branch("pms[nmspt]",&_pms,"pms[nmspt]/F");
 
-  float _xms[_nmspt];  tt->Branch("xms[nmspt]",&_xms,"xms[nmspt]/F");
-  float _thms[_nmspt]; tt->Branch("thms[nmspt]",&_thms,"thms[nmspt]/F");
-  float _yms[_nmspt];  tt->Branch("yms[nmspt]",&_yms,"yms[nmspt]/F");
-  float _phms[_nmspt]; tt->Branch("phms[nmspt]",&_phms,"phms[nmspt]/F");
-  float _pms[_nmspt]; tt->Branch("pms[nmspt]",&_pms,"pms[nmspt]/F");
+  // msi == multiple scattering initial state
+  int _npdpt = npdpt;  tt->Branch("npdpt",&_npdpt,"npdpt/I");
+  int _i_pi_dec=0;     tt->Branch("ipidec",&_i_pi_dec,"ipidec/I");
+  float _d_pi_dec;     tt->Branch("dpidec",&_d_pi_dec,"dpidec/F");
+  float _xpd[npdpt];  tt->Branch("xpd[npdpt]",&_xms,"xpd[npdpt]/F");
+  float _thpd[npdpt]; tt->Branch("thpd[npdpt]",&_thms,"thpd[npdpt]/F");
+  float _ypd[npdpt];  tt->Branch("ypd[npdpt]",&_yms,"ypd[npdpt]/F");
+  float _phpd[npdpt]; tt->Branch("phpd[npdpt]",&_phms,"phpd[npdpt]/F");
+  float _ppd[npdpt]; tt->Branch("ppd[npdpt]",&_pms,"ppd[npdpt]/F");
 
   TH2F* h_xy[ndet], *h_xyAcc[ndet];
   TH2F* h_xth[ndet], *h_xthAcc[ndet];
@@ -358,21 +375,16 @@ int main( int argc, const char **argv )
 
 	    vector<HBeamParticle>& vhistory = pionbeam.newParticle();
 	    vector<HBeamParticle>& vms_history = pionbeam.get_ms_history();
+	    vector<HBeamParticle>& vpd_history = pionbeam.get_pd_history();
 	    vector<HBeamParticle>& vsolution = pionbeam.get_solution();
 
-	    //for (unsigned int kk=0; kk<vhistory.size(); ++kk) cout << "history["<< kk << "].fName= " << vhistory[kk].fName << endl;
-	    //for (unsigned int kk=0; kk<vms_history.size(); ++kk) cout << "vms_history["<< kk << "].fName= " << vms_history[kk].fName << endl;
-	    //for (unsigned int kk=0; kk<vsolution.size(); ++kk) cout << "vsolution["<< kk << "].fName= " << vsolution[kk].fName << endl;
-	    //history[0].fName= beam
-	    //history[1].fName= det1
-	    //history[2].fName= det2
-	    //history[3].fName= diamond
-	    //history[4].fName= target
-	    //vms_history[0].fName= ORIG_BEAM_PROFILE
-	    //vms_history[1].fName= POST_det2_MS_BEAM_PROFILE
-	    //vsolution[0].fName= SOLUTION_BEAM_INITIAL
-	    //vsolution[1].fName= SOLUTION_DIAM
-	    //vsolution[2].fName= SOLUTION_HADES
+	    // make sure that the vectors have the same entries from event to event
+	    // They should also have the entries in the same order, but that's more cotly to verify for every event
+	    //cout << vhistory.size() << ", " <<  vms_history.size() << "," <<  vpd_history.size() << ", " << vsolution.size() << endl;
+	    assert(ndet==vhistory.size());
+	    assert(nmspt==vms_history.size());
+	    assert(npdpt==vpd_history.size());
+	    assert(nrec==vsolution.size());
 
 	    vPion.clear();
 	    for(UInt_t i = 0; i < vhistory.size(); i++){
@@ -409,7 +421,7 @@ int main( int argc, const char **argv )
 	      h_mom_z[i]->Fill(vPion   [i].Pz());
 	    }
 
-	    for (unsigned int j=0; j<vms_history.size() && j<(unsigned int)_nmspt; ++j) {
+	    for (unsigned int j=0; j<vms_history.size() && j<(unsigned int)nmspt; ++j) {
 	      TLorentzVector ms_pion;
 	      ms_pion.SetXYZM(vms_history[j].fP.X(),vms_history[j].fP.Y(),vms_history[j].fP.Z(), 139.56995*0.001);
 	      const double ms_the_mrad = TMath::ATan2(ms_pion.Px(),ms_pion.Pz())*1000;
@@ -420,8 +432,28 @@ int main( int argc, const char **argv )
 	      _thms[j] = ms_the_mrad;
 	      _yms[j] = vms_history[j].fPos.Y();
 	      _phms[j] = ms_phi_mrad;
-
 	    }
+
+
+	    for (unsigned int j=0; j<vpd_history.size() && j<(unsigned int)_npdpt; ++j) {
+	      TLorentzVector pd_muon;
+	      pd_muon.SetXYZM(vpd_history[j].fP.X(),vpd_history[j].fP.Y(),vpd_history[j].fP.Z(), 139.56995*0.001);
+	      const double pd_the_mrad = TMath::ATan2(pd_muon.Px(),pd_muon.Pz())*1000;
+	      const double pd_phi_mrad = TMath::ATan2(pd_muon.Py(),pd_muon.Pz())*1000;
+	      //_dppd[j] = (pd_pion.P() - pbeam)*100./pbeam;
+	      _d_pi_dec = vpd_history[j].fPos.Z();
+	      _ppd[j] = pd_muon.P();
+	      _xpd[j] = vpd_history[j].fPos.X();
+	      _thpd[j] = pd_the_mrad;
+	      _ypd[j] = vpd_history[j].fPos.Y();
+	      _phpd[j] = pd_phi_mrad;
+	    }
+
+	    // retreive the element index where pion decay took place
+	    for (_i_pi_dec=0; _i_pi_dec<elements.size(); ++_i_pi_dec) {
+	      if (elements[_i_pi_dec].fPid!=9) break;
+	    }
+	    //cout << _d_pi_dec << " => " << _i_pi_dec << endl;
 
 	    for (unsigned int j=0; j<vsolution.size() && j<(unsigned int)_nrec; ++j) {
 	      TLorentzVector rec_pion;
