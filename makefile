@@ -1,6 +1,6 @@
 ROOT_INC        = $(shell root-config --incdir)
 ROOT_LIBS       = $(shell root-config --libs)
-CXXFLAGS        = -Wall
+CXXFLAGS        = -Wall -std=c++11
 CXXFLAGS_GPROF  = -Wall -pg
 
 gen: HBeam.h pion_generator.cpp
