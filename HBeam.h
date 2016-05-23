@@ -341,6 +341,7 @@ public:
       const double px = pz * tan(state[1]);
       const double py = pz * tan(state[3]);
       fP.SetXYZ(px,py,pz);
+      fBeamMomSmeared = p;
       if (unit == Unit::TRANSPORT) { for (int i=0; i<5; ++i) state[i] *= _ffromPluto[i]; }
     }
 
@@ -360,8 +361,6 @@ public:
     }
 
 };
-
-
 
 
 class HBeam {
@@ -980,6 +979,7 @@ void HBeam::store_history(HBeamParticle &part, HBeamElement &det, double *state,
   part.set_state(state, fBeam.fBeamMom, det.fDistance, Unit::TRANSPORT);
   part.fName = det.fName + tag;
   part.fAccepted = det.fAccepted;
+  //cout << " store_hist tag:" << tag << " dp= " << part.dp() << endl;
   hist.push_back(part);
 }
 
@@ -1013,19 +1013,17 @@ void HBeam::do_pion_decay(HBeamParticle &part, HBeamElement &det, double &mom, d
   float _p_lab_mu = TMath::Hypot(PzLab_mu, PtLab_mu);
   float _theta_lab_mu = TMath::ACos(PzLab_mu/_p_lab_mu);
   double _phi_cm_mu = gRandom->Uniform(2*TMath::Pi());
-  //cout << "Pcm_mu=" << Pcm_mu <<  "Ecm_mu=" << Ecm_mu
-  //     << "PzLab_mu=" << PzLab_mu << "PtLab_mu=" << PtLab_mu
-  //     << "Plab_mu=" << _p_lab_mu << "th=" << _theta_lab_mu <<   endl;
 
-  the += _theta_lab_mu*TMath::Cos(phi + _phi_cm_mu)/1000.;
-  phi += _theta_lab_mu*TMath::Sin(phi + _phi_cm_mu)/1000.;
   mom = 100.*(_p_lab_mu - fBeam.fBeamMom)/fBeam.fBeamMom;
+  float dthe = _theta_lab_mu*TMath::Cos(1000.*phi + _phi_cm_mu)*1000.;
+  float dphi = _theta_lab_mu*TMath::Sin(1000.*phi + _phi_cm_mu)*1000.;
+  //cout << " _theta_lab_mu[rad]= " << _theta_lab_mu;
+  //cout << " the[mrad]= " << the << " dthe[mrad]= " << dthe;
+  //cout << " phi[mrad]= " << phi << " dphi[mrad]= " << dphi;
+  //cout << " mom[%]= " << mom << endl;
 
-  //cout << "pBeam= " << fBeam.fBeamMom << " ppi= " << p_pi << " pmu= " << _p_lab_mu << endl;
-  //const double pz = _p_lab_mu / sqrt(1.+ tan(the)*tan(the) + tan(phi)*tan(phi));
-  //const double px = pz * tan(the);
-  //const double py = pz * tan(phi);
-  //part.fP.SetXYZ(px,py,pz);
+  the += dthe;
+  phi += dphi;
 
 }
 
@@ -1053,6 +1051,7 @@ void HBeam::back_propagate(HBeamParticle &part, HBeamElement &det, double *state
   tvd_state *= prop;
 
   for (int i=0; i<4; ++i) back_prop[i] = tvd_state[i];
+  back_prop[4] = state[4];
 
 }
 
