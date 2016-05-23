@@ -180,7 +180,7 @@ int main( int argc, const char **argv )
   pionbeam.set_detector_names("det1", "det2", "diamond", "hades");
 
   vector<HBeamElement>& elements  = pionbeam.getElements();
-  vector<HBeamElement>& detectors = pionbeam.getDetectors();
+  //vector<HBeamElement>& detectors = pionbeam.getDetectors();
 
   if(elementNames.size() != elements.size()) {
     cout<<"Number of elements differs from name map! nelements = "<<elements.size()<<", map size = "<<elementNames.size()<<endl;
@@ -260,11 +260,11 @@ int main( int argc, const char **argv )
   int _npdpt = npdpt;  tt->Branch("npdpt",&_npdpt,"npdpt/I");
   int _i_pi_dec=0;     tt->Branch("ipidec",&_i_pi_dec,"ipidec/I");
   float _d_pi_dec;     tt->Branch("dpidec",&_d_pi_dec,"dpidec/F");
-  float _xpd[npdpt];  tt->Branch("xpd[npdpt]",&_xms,"xpd[npdpt]/F");
-  float _thpd[npdpt]; tt->Branch("thpd[npdpt]",&_thms,"thpd[npdpt]/F");
-  float _ypd[npdpt];  tt->Branch("ypd[npdpt]",&_yms,"ypd[npdpt]/F");
-  float _phpd[npdpt]; tt->Branch("phpd[npdpt]",&_phms,"phpd[npdpt]/F");
-  float _ppd[npdpt]; tt->Branch("ppd[npdpt]",&_pms,"ppd[npdpt]/F");
+  float _xpd[npdpt];  tt->Branch("xpd[npdpt]",&_xpd,"xpd[npdpt]/F");
+  float _thpd[npdpt]; tt->Branch("thpd[npdpt]",&_thpd,"thpd[npdpt]/F");
+  float _ypd[npdpt];  tt->Branch("ypd[npdpt]",&_ypd,"ypd[npdpt]/F");
+  float _phpd[npdpt]; tt->Branch("phpd[npdpt]",&_phpd,"phpd[npdpt]/F");
+  float _ppd[npdpt]; tt->Branch("ppd[npdpt]",&_ppd,"ppd[npdpt]/F");
 
   TH2F* h_xy[ndet], *h_xyAcc[ndet];
   TH2F* h_xth[ndet], *h_xthAcc[ndet];
@@ -450,7 +450,7 @@ int main( int argc, const char **argv )
 	    }
 
 	    // retreive the element index where pion decay took place
-	    for (_i_pi_dec=0; _i_pi_dec<elements.size(); ++_i_pi_dec) {
+	    for (_i_pi_dec=0; _i_pi_dec<nelt; ++_i_pi_dec) {
 	      if (elements[_i_pi_dec].fPid!=9) break;
 	    }
 	    //cout << _d_pi_dec << " => " << _i_pi_dec << endl;

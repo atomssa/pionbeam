@@ -80,6 +80,16 @@
 
 using namespace std;
 
+const double pion_mass = 0.13956995; /*GeV*/
+const double muon_mass = 0.1057; /*GeV*/
+const double pion_ctau = 7.8045; /*Meters*/
+const int pion_pid = 9;
+const int muon_pid = 6;
+
+const float Ecm_mu = ((pion_mass*pion_mass) + (muon_mass*muon_mass) ) / (2*pion_mass);
+const float Pcm_mu = TMath::Sqrt(Ecm_mu*Ecm_mu - muon_mass*muon_mass);
+
+
 double Tx[3][8] = {{0.}};
 double Ty[3][7] = {{0.}};
 double x_mes[3]={0.}, x_mes_e[3]={0.};
@@ -401,15 +411,6 @@ private:
     vector<Int_t> det_idx;
     RecoPars par;
 
-    const double pion_mass = 0.13956995; /*GeV*/
-    const double muon_mass = 0.1057; /*GeV*/
-    const double pion_ctau = 7.8045; /*Meters*/
-    const int pion_pid = 9;
-    const int muon_pid = 6;
-
-    const float Ecm_mu = ((pion_mass*pion_mass) + (muon_mass*muon_mass) ) / (2*pion_mass);
-    const float Pcm_mu = TMath::Sqrt(Ecm_mu*Ecm_mu - muon_mass*muon_mass);
-
  public:
 
     HBeam();
@@ -616,7 +617,7 @@ void HBeam::calc_transport_matrix(HBeamElement &refDet, HBeamElement &det, doubl
 
 int HBeam::get_det_idx(TString name) {
   cout << " detectors size: " << fdetectors.size() << endl;
-  for (int idet=0; idet < fdetectors.size(); ++idet) {
+  for (unsigned int idet=0; idet < fdetectors.size(); ++idet) {
     cout << " det search for " << name << ": " << fdetectors[idet].fName << endl;
     if ( fdetectors[idet].fName.EqualTo(name) ) {
       cout << " -- Found index " << idet << endl;
@@ -1536,8 +1537,8 @@ void HBeam::solve_state() {
   part.fStatus = state;
   store_solution("TDR", state_targ, part);
 
-  double init[5] = {0.0};
-  for (int i=0; i<5; ++i) { init[i] = state_targ[i]; }
+  //double init[5] = {0.0};
+  //for (int i=0; i<5; ++i) { init[i] = state_targ[i]; }
   solution_minuit(state_targ);
   store_solution("MIN", state_targ, part);
 
@@ -1583,7 +1584,7 @@ double HBeam::calc_decay_distance(HBeamParticle& part) {
   return d0 + part.fFlightDist;
 }
 
-bool sort_by_dist_from_prod(HBeamElement &e1, HBeamElement &e2) {
+bool sort_by_dist_from_prod(const HBeamElement &e1, const HBeamElement &e2) {
   return e1.fDistance < e2.fDistance;
 }
 
@@ -1595,7 +1596,7 @@ bool find_by_name(const HBeamElement &e1) {
 
 void HBeam::print_dets(TString tag) {
   cout << tag;
-  for (int idet=0; idet < fdetectors.size(); ++idet) {
+  for (unsigned int idet=0; idet < fdetectors.size(); ++idet) {
     cout << "[" << fdetectors[idet].fName << "," << fdetectors[idet].fDistance << "],";
   }
   cout << endl;
