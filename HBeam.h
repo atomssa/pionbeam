@@ -464,8 +464,6 @@ private:
     vector<HBeamParticle>&   get_pd_history() { return fpd_history; }
     vector<HBeamParticle>&   get_solution() { return fsolution; }
 
-    TF1 *gen_func;
-
 };
 
 HBeam::HBeam()
@@ -492,10 +490,6 @@ HBeam::HBeam()
   gMinuit = new TMinuit(5);
   gMinuit->SetFCN(fcn);
   gMinuit->SetPrintLevel(-1);
-
-  gen_func = new TF1("pol2","[0]+x*x*[1]",-1.1999999,1.19999999);
-  gen_func->SetParameter(0,1);
-  gen_func->SetParameter(1,100);
 
 }
 
@@ -759,14 +753,29 @@ void  HBeam::createBeam(HBeamParticle& part)
     part.fPos += p1;
 
     Double_t p = 0.0;
-    if ( fBeam.fMomRes.Z()==0 ) {
-      //double delrnd = (double) ( (int) (gRandom->Rndm() * 13.0) - 6 ) / 100.0;
-      double delrnd = (double) ( (int) (gen_func->GetRandom() * 5) ) / 100.0;
-      p  = fBeam.fBeamMom * (1.0 + delrnd);
-    } else {
+    if ( fBeam.fMomRes.Z() > 0 ) {
       // beam divergence
       p  = fBeam.fBeamMom + fBeam.fBeamMom * (gRandom->Rndm() - 0.5) * 2*fBeam.fMomRes.Z();
+    } else  if ( fBeam.fMomRes.Z()==0 ) {
+      p = fBeam.fBeamMom;
+    } else {
+      // generate envents concentrated at integral values of dp between -5% and +5%
+
+      // Option A
+      // equal weights for each integer value of delta_p
+      //double delrnd = (double) ( (int) (gRandom->Rndm() * 13.0) - 6 ) / 100.0;
+
+      // Option B
+      // Higher weight for higher values of delta_p (->+/-5%) parametrized by gen_func
+      TF1 *gen_func;
+      gen_func = new TF1("pol2","[0]+x*x*[1]",-1.1999999,1.19999999);
+      gen_func->SetParameter(0,1);
+      gen_func->SetParameter(1,100);
+      double delrnd = (double) ( (int) (gen_func->GetRandom() * 5) ) / 100.0;
+      p  = fBeam.fBeamMom * (1.0 + delrnd);
+
     }
+
     Double_t px = p * (gRandom->Rndm() - 0.5) * 2*fBeam.fMomRes.X();
     Double_t py = p * (gRandom->Rndm() - 0.5) * 2*fBeam.fMomRes.Y();
     Double_t pz = TMath::Sqrt(p*p - px*px - py*py);
@@ -986,27 +995,8 @@ void HBeam::apply_ms_kick(TVector3 &p3, HBeamElement &det, double &dthe, double 
   dphi += gRandom->Gaus(0.0, sigma_ms);
 }
 
-//float PLab_mu(float p_pi, float pcm, float Ecm){
-//  double _beta = 1./sqrt(1 + ((pion_mass*pion_mass)/(p_pi*p_pi)));;
-//  double _gamma = 1./sqrt(1-_beta*_beta);
-//  return _gamma*(pcm + _beta*Ecm);
-//}
-
-//void ThetaLab_mu(float p_pi, float theta_cm_mu, double &_th, double &_plab){
-//  float Pzcm_mu = Pcm_mu * TMath::Cos(theta_cm_mu);
-//  float Ptcm_mu = Pcm_mu * TMath::Sin(theta_cm_mu);
-//  double _beta = 1./sqrt(1 + ((pion_mass*pion_mass)/(p_pi*p_pi)));;
-//  double _gamma = 1./sqrt(1-_beta*_beta);
-//  float PzLab_mu = _gamma*(Pzcm_mu + _beta*Ecm_mu);
-//  float PtLab_mu = Ptcm_mu;
-//  _plab = TMath::Hypot(PzLab_mu, PtLab_mu);
-//  _th = TMath::ACos(PzLab_mu/_plab);
-//  cout << "Pcm_mu=" << Pcm_mu <<  "Ecm_mu=" << Ecm_mu
-//       << "PzLab_mu=" << PzLab_mu << "PtLab_mu=" << PtLab_mu
-//       << "Plab_mu=" << _plab << "th=" << _th <<   endl;
-//}
-
 void HBeam::do_pion_decay(HBeamParticle &part, HBeamElement &det, double &mom, double &the, double &phi) {
+
   part.fPid = muon_pid;
   // TODO: set the angles for the muon
 
