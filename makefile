@@ -8,3 +8,6 @@ gen: HBeam.h pion_generator.cpp
 
 gen_gprof: HBeam.h pion_generator.cpp
 	g++ pion_generator.cpp -o gen_gprof $(CXXFLAGS_GPROF) -I$(ROOT_INC) $(ROOT_LIBS) -lMinuit
+
+clean:
+	rm -vf gen gen_prof
