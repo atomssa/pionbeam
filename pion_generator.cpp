@@ -43,38 +43,38 @@ int main( int argc, const char **argv )
   //bool digi_pitrk = false;
   //bool digi_diam = false;
 
-  if (argc<7) {
-    cout << "need 6 arguments. only " << argc-1 << " given" << endl;
-    cout << "./gen Nevt[10000] dphi[50mrad] dth[10mrad] xyr[0.5mm] Digitzie?[00,01,10/11] MS[00,01,10/11]" << endl;
+  if (argc!=7&&argc!=9) {
+    cout << "Need minimum either 5 or 7 arguments. " << argc-1 << " given" << endl;
+    cout << "./gen Nevt[10000] dphi[50mrad] dth[10mrad] xyr[0.5mm] dp[6\%] p[GeV] [Digitzie?{00,01,10/11} [MS{00,01,10/11}]" << endl;
     return -1;
   }
 
   cout << "argc= " << argc << " nEvents= " << atoi(argv[1]) << endl;
 
-  const double pbeam = 1.3; // for the moment stick to this
-  //const double pbeam = 0.7;
-
   const int nEvents=atoi(argv[1]);
   const double dph = atof(argv[2]);
   const double dth = atof(argv[3]);
   const double xyr = atof(argv[4]);
+  const double dp_beam = atof(argv[5]);
+  const double pbeam = atof(argv[6]);
 
-  const bool digi_pitrk = (atoi(argv[5])/10 == 1);
-  const bool digi_diam = (atoi(argv[5])%10 == 1);
+  const bool digi_pitrk = argc!=9 ? false : (atoi(argv[7])/10 == 1);
+  const bool digi_diam = argc!=9 ? false : (atoi(argv[7])%10 == 1);
   const double diam_seg = 2.45; // 14.7mm/6
+
   //const double diam_seg = 2.0; // 14.7mm/6
   //if (argc == 8 ) {
   //  diam_seg = atof(argv[7]); // Argument for academic study on what finer element size on start detector would bring
   //}
 
   //const bool do_ms_diam = false;
-  const bool do_ms_pitrk1 = (atoi(argv[6])/10 == 1);
-  const bool do_ms_pitrk2 = (atoi(argv[6])%10 == 1);
+  const bool do_ms_pitrk1 = argc!=9?false:(atoi(argv[8])/10 == 1);
+  const bool do_ms_pitrk2 = argc!=9?false:(atoi(argv[8])%10 == 1);
   cout << "do_ms_pitrk1 = " << (do_ms_pitrk1?1:0) << "  do_ms_pitrk2 = " << (do_ms_pitrk2?1:0) << endl;
 
-  TString outfile=Form("output/ms%d%d_ds%d%d%s_xy%3.1fmm_dth%d_dph%d_p%4.2f.evt",
+  TString outfile=Form("output/ms%d%d_ds%d%d%s_xy%3.1fmm_dth%d_dph%d_dp%3.1f_p%4.2f.evt",
 		       do_ms_pitrk1?1:0, do_ms_pitrk2?1:0, digi_pitrk?1:0, digi_diam?1:0,
-		       (argc==8?Form("_seg%3.1f",diam_seg):""), xyr, (int)dth, (int)dph, pbeam);
+		       (argc==10?Form("_seg%3.1f",diam_seg):""), xyr, (int)dth, (int)dph, dp_beam, pbeam);
 
   cout << "Output file name: " << outfile << endl;
 
@@ -159,28 +159,49 @@ int main( int argc, const char **argv )
   //pionbeam.setBeamResolution (0.01,0.05,0.06);          // dpx [rad],dpy [rad] ,dpz [relative]  [+-]
   //pionbeam.setBeamResolution (0.01,0.05,0.0);          // dpx [rad],dpy [rad] ,dpz [relative]  [+-]
   //pionbeam.setBeamResolution (0.0,0.0,0.0);          // dpx [rad],dpy [rad] ,dpz [relative]  [+-]
-  pionbeam.setBeamResolution (dth/1000.,dph/1000.,0.0);          // dpx [rad],dpy [rad] ,dpz [relative]  [+-]
+  //pionbeam.setBeamResolution (dth/1000.,dph/1000.,0.0);          // dpx [rad],dpy [rad] ,dpz [relative]  [+-]
+  //pionbeam.setBeamResolution (dth/1000.,dph/1000.,0.06);          // dpx [rad],dpy [rad] ,dpz [relative]  [+-]
+  pionbeam.setBeamResolution (dth/1000.,dph/1000.,dp_beam/100);          // dpx [rad],dpy [rad] ,dpz [relative]  [+-]
 
-  if(!pionbeam.initBeamLine  ("par_files/pibeam_set6_mod_new_new.data",32)) return 1;               // transform input file and target element number
+  //if(!pionbeam.initBeamLine  ("par_files/pibeam_set6_mod_new_new.data",32)) return 1;               // transform input file and target element number
+  if(!pionbeam.initBeamLine  ("par_files/pibeam_250414.data",32)) return 1;
 
   // Args for adding detector: thicknes[cm], rad len[cm], segmentation[mm], distance relative to HADES [mm], acceptance flag, acceptance size x, y [mm]
   // Detectors should be added in decreasing order of distance from hades target for the MS simulation to work properly
-  pionbeam.addDetector("det1",    do_ms_pitrk1?0.03:0.0, 9.36, digi_pitrk, 0.78,     -17092.6, 2, 50., 50.);
-  pionbeam.addDetector("det2",    do_ms_pitrk2?0.03:0.0, 9.36, digi_pitrk, 0.78,     -5400.0,  2, 50., 50.);
+  //pionbeam.addDetector("det1",    do_ms_pitrk1?0.03:0.0, 9.36, digi_pitrk, 0.78,     -17092.6, 2, 50., 50.);  // 17 du fichirt
+  //pionbeam.addDetector("det2",    do_ms_pitrk2?0.03:0.0, 9.36, digi_pitrk, 0.78,     -5400.0,  2, 50., 50.); //
+
+  // Locations along z compatible with the parameter file
+  pionbeam.addDetector("det1",    do_ms_pitrk1?0.03:0.0, 9.36, digi_pitrk, 0.78,     -17209, 2, 50., 50.);  // 17 du fichirt
+  pionbeam.addDetector("det2",    do_ms_pitrk2?0.03:0.0, 9.36, digi_pitrk, 0.78,     -5442,  2, 50., 50.); //
+
   pionbeam.addDetector("plane",   0.0,                  1.0,  false,      0.0,      -1300.0,  1, 60., 60.);
-  //pionbeam.addDetector("diamond", do_ms_diam?0.03:0.0,  18.8, digi_diam,  diam_seg, -400.0,   2, 7.1, 7.1);
+
+  //pionbeam.addDetector("diamond", do_ms_diam?0.03:0.0,  18.8, digi_diam,  diam_seg, -400.0,   2, 7.1, 7.1); // -29mm, ->-170mm<-
   //pionbeam.addDetector("diamond", do_ms_diam?0.03:0.0,  18.8, digi_diam,  3.0,      -400.0,   2, 7.1, 7.1);
-  pionbeam.addDetector("diamond", 0.0,                  1.0, digi_diam,  diam_seg, -400.0,   2, 7.1, 7.1); // no MS in
-  pionbeam.addDetector("hades",   0.0,                  1.0,  false,      0.0,      0.0,      1, 60., 60);
+  //pionbeam.addDetector("diamond", 0.0,                  1.0, digi_diam,  diam_seg, -400.0,   2, 7.1, 7.1); // no MS in
+
+  //pionbeam.addDetector("diamond", 0.0,                  1.0, digi_diam,  diam_seg, -170.0,   2, 7.1, 7.1);
+
+  pionbeam.addDetector("diamond", 0.0,                  1.0, digi_diam,  diam_seg, -170.0,   2, 7.1, 7.1);
+  pionbeam.addDetector("hades",   0.0,                  1.0,  false,      0.0,      0.0,      1, 12.0, 12.0);
+
+  //pionbeam.addDetector("diamond", 0.0,                  1.0, digi_diam,  diam_seg, -170.0,   2, 207.1, 207.1);
+  //pionbeam.addDetector("hades",   0.0,                  1.0,  false,      0.0,      0.0,      1, 206.0, 206.0);
+
+
+  pionbeam.addDetector("pidec",  -1.0,                  1.0,  false,      0,        100,      1, 1.e9, 1.e9 /*no acceptacne cut*/);
+
   vector<int> det_idx;
   det_idx.push_back(0); // pion tracker 1
   det_idx.push_back(1); // pion tracker 2
   det_idx.push_back(3); // diamond start
   det_idx.push_back(4); // HADES
   pionbeam.set_detector_names("det1", "det2", "diamond", "hades");
+  pionbeam.set_pion_decay_plane_name("pidec");
 
   vector<HBeamElement>& elements  = pionbeam.getElements();
-  //vector<HBeamElement>& detectors = pionbeam.getDetectors();
+  vector<HBeamElement>& detectors = pionbeam.getDetectors();
 
   if(elementNames.size() != elements.size()) {
     cout<<"Number of elements differs from name map! nelements = "<<elements.size()<<", map size = "<<elementNames.size()<<endl;
