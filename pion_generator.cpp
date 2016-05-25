@@ -96,8 +96,8 @@ int main( int argc, const char **argv )
   elementNames[13] = "in_Q4";
   elementNames[14] = "out_Q4";
   elementNames[15] = "inter_focal_plane";
-  elementNames[16] = "detector_I";
-  elementNames[17] = "in_Q5"; // Position of Det1
+  elementNames[16] = "detector_I"; // Position of Det1
+  elementNames[17] = "in_Q5";
   elementNames[18] = "out_Q5";
   elementNames[19] = "in_Q6";
   elementNames[20] = "out_Q6";
@@ -105,7 +105,7 @@ int main( int argc, const char **argv )
   elementNames[22] = "out_dip_2";
   elementNames[23] = "in_Q7";
   elementNames[24] = "out_Q7";
-  elementNames[25] = "inter_point_det_2";
+  elementNames[25] = "inter_point_det_2"; // Position of Det1
   elementNames[26] = "in_Q8";
   elementNames[27] = "out_Q8";
   elementNames[28] = "in_Q9";
@@ -124,16 +124,40 @@ int main( int argc, const char **argv )
     1,1,1
   };
 
-  Double_t xcut[] =  {   // [mm]
 
+//   h/ 6.,6.,6.,6.,7.,
+//    $  7.,7.,7.,7.,9.,
+//    $ 9.,6.,6.,6.,6.,
+//    $ 6.,5.,6.,6.,6.,  !  16 et 17  detecteur II
+//    $ 6.,9.,9.,6.,6.,
+//    $ 5.,6.,6.,6.,6.,
+//    $ 6.,0.70,0.6,5.,
+//    $-- filler ?
+//    $ 5.,5.,5.,5.,5.,
+//    $ 5.,5.,5.,5.,5.,
+//    $ 5.,5.,5.,5.,5.,5.  /
+
+  Double_t xcut[] =  {   // [mm]
     60.,60.,60.,60.,70.,   //5
     70.,70.,70.,70.,90.,   //10
     90.,60.,60.,60.,60.,   //15
     60.,50.,60.,60.,60.,   //20
     60.,90.,90.,60.,60.,   //25
     50.,60.,60.,60.,60.,   //30
-    60.,60.,6
+    60.,60.,60.
   };
+
+//    v/6.,6.,6.,6.,3.5,
+//    $ 3.5,3.5,3.5,3.5,3.5,
+//    $ 3.5,6.,6.,6.,6.,
+//    $ 6.,5.,6.,6.,6.,
+//    $ 6.,3.5,3.5,6.,6.,
+//    $ 5.,6.,6.,6.,6.,
+//    $ 6.,0.70,0.6,5.,5.,
+//    $-- filler ?
+//    $ 5.,5.,5.,5.,5.,
+//    $ 5.,5.,5.,5.,5.,
+//    $ 5.,5.,5.,5.,5.  /
 
   Double_t ycut[] =        // [mm]
     {
@@ -143,7 +167,7 @@ int main( int argc, const char **argv )
       60.,50.,60.,60.,60., //20
       60.,35.,35.,60.,60., //25
       50.,60.,60.,60.,60., //30
-      60.,60.,6
+      60.,60.,60.
     };
 
   HBeam pionbeam;
@@ -211,6 +235,9 @@ int main( int argc, const char **argv )
   for(UInt_t i = 0 ; i < elements.size(); i++){
     elements[i].setElement(elementNames[i],cuttup[i],xcut[i],ycut[i]);
   }
+
+  pionbeam.print_elements();
+  pionbeam.print_detectors();
 
   //pionbeam.printBeamLine(kTRUE);   // kTRUE : print transform matrices in addition to name and distance, kFALSE : don't
   //pionbeam.printDetectors();
