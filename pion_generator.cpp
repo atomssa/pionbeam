@@ -538,10 +538,17 @@ int main( int argc, const char **argv )
 	      if(Accepted) hAccCumul->Fill(i);
 	    }
 
-	    //for (int idet=0; idet < ndet; ++idet) {
-	    //  if(!detectors[idet].fAccepted) Accepted = kFALSE;
-	    //}
-
+	    //cout << "Ndet= " << ndet;
+	    //string cout_stuff;
+	    for (int idet=0; idet < detectors.size(); ++idet) {
+	      if (detectors[idet].decay_pion()) continue;
+	      if (detectors[idet].fName.EqualTo("plane")) continue;
+	      //cout << "idet " << idet << " name= " << detectors[idet].fName << " acc= " << detectors[idet].fAccepted << endl;
+	      TString s(detectors[idet].fName(0,4));
+	      //cout_stuff += Form(" (%d, %s, A=%s) ",idet, s.Data(), (detectors[idet].fAccepted?"OK":"NO"));
+	      if(!detectors[idet].fAccepted) Accepted = kFALSE;
+	    }
+	    //cout << cout_stuff << endl;
 	    _acc = Accepted?1:0;
 
 	    //cout << "OOOO accepted ctEvt= " << ctEvt << " ctTry= " << ctTry << " ctTotalTry= " << ctTotalTry << " acc=" << _acc << endl;
