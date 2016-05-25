@@ -403,10 +403,14 @@ int main( int argc, const char **argv )
       if(asciiFile) fprintf(asciiFile," %i %i %f %f %i\n",ctEvt,nParticle,blast,event_impact_param,flag);
       ctEvents ++;
 
+      if (ctTotalTry>=nEvents) break;
+
       Int_t nPart             = 0;
       Int_t ctTryParticle = 0;
       while (nPart < nParticle && ctTryParticle <= maxTry)
 	{
+
+	  if (ctTotalTry>=nEvents) break;
 
 	  vector<TLorentzVector> vPion;
 
@@ -415,6 +419,8 @@ int main( int argc, const char **argv )
 	  Bool_t reDo = kTRUE;
 	  Int_t ctTry = 0;
 	  while(reDo && ctTry < maxTry){  // try as long a particle is accepted by the beam line
+
+	    if (ctTotalTry>=nEvents) break;
 
 	    _acc = 0;
 
@@ -481,7 +487,6 @@ int main( int argc, const char **argv )
 	      _yms[j] = vms_history[j].fPos.Y();
 	      _phms[j] = ms_phi_mrad;
 	    }
-
 
 	    for (unsigned int j=0; j<vpd_history.size() && j<(unsigned int)_npdpt; ++j) {
 	      TLorentzVector pd_muon;
