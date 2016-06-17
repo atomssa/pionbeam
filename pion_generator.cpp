@@ -14,6 +14,7 @@
 #include "TF1.h"
 #include "TFile.h"
 #include "TTree.h"
+#include "TParameter.h"
 
 #include <iostream>
 #include <stdio.h>
@@ -55,8 +56,10 @@ int main( int argc, const char **argv )
   const double dph = atof(argv[2]);
   const double dth = atof(argv[3]);
   const double xyr = atof(argv[4]);
-  const double dp_beam = atof(argv[5]);
-  const double pbeam = atof(argv[6]);
+  const double pbeam = atof(argv[5]);
+  const double dp_beam = atof(argv[6]);
+
+  TParameter<double> tpar_beam_mom("ref_beam_mom", pbeam);
 
   const bool digi_pitrk = argc!=9 ? false : (atoi(argv[7])/10 == 1);
   const bool digi_diam = argc!=9 ? false : (atoi(argv[7])%10 == 1);
@@ -208,19 +211,13 @@ int main( int argc, const char **argv )
   //pionbeam.addDetector("diamond", 0.0,                  1.0, digi_diam,  diam_seg, -170.0,   2, 7.1, 7.1);
 
   pionbeam.addDetector("diamond", 0.0,                  1.0, digi_diam,  diam_seg, -170.0,   2, 7.1, 7.1);
-  pionbeam.addDetector("hades",   0.0,                  1.0,  false,      0.0,      0.0,      1, 12.0, 12.0);
+  pionbeam.addDetector("hades",   0.0,                  1.0,  false,      0.0,      0.0,      1, 6.0, 6.0);
 
   //pionbeam.addDetector("diamond", 0.0,                  1.0, digi_diam,  diam_seg, -170.0,   2, 207.1, 207.1);
   //pionbeam.addDetector("hades",   0.0,                  1.0,  false,      0.0,      0.0,      1, 206.0, 206.0);
 
-
   pionbeam.addDetector("pidec",  -1.0,                  1.0,  false,      0,        100,      1, 1.e9, 1.e9 /*no acceptacne cut*/);
 
-  vector<int> det_idx;
-  det_idx.push_back(0); // pion tracker 1
-  det_idx.push_back(1); // pion tracker 2
-  det_idx.push_back(3); // diamond start
-  det_idx.push_back(4); // HADES
   pionbeam.set_detector_names("det1", "det2", "diamond", "hades");
   pionbeam.set_pion_decay_plane_name("pidec");
 
@@ -392,7 +389,7 @@ int main( int argc, const char **argv )
 
   Int_t ctEvents   = 0;
   Int_t ctTotalTry = 0;
-  Int_t maxTry     = 100; // max number of allowed try to prevent endless loop
+  Int_t maxTry     = 300; // max number of allowed try to prevent endless loop
   Bool_t Accepted  = kTRUE;
   //-----------------------------------------------------------
   for(Int_t ctEvt = 1; ctEvt <= nEvents; ctEvt++)
@@ -403,14 +400,10 @@ int main( int argc, const char **argv )
       if(asciiFile) fprintf(asciiFile," %i %i %f %f %i\n",ctEvt,nParticle,blast,event_impact_param,flag);
       ctEvents ++;
 
-      if (ctTotalTry>=nEvents) break;
-
       Int_t nPart             = 0;
       Int_t ctTryParticle = 0;
       while (nPart < nParticle && ctTryParticle <= maxTry)
 	{
-
-	  if (ctTotalTry>=nEvents) break;
 
 	  vector<TLorentzVector> vPion;
 
@@ -418,9 +411,8 @@ int main( int argc, const char **argv )
 	  // create particles
 	  Bool_t reDo = kTRUE;
 	  Int_t ctTry = 0;
-	  while(reDo && ctTry < maxTry){  // try as long a particle is accepted by the beam line
-
-	    if (ctTotalTry>=nEvents) break;
+	  while(reDo && ctTry < maxTry)
+	    {  // try as long a particle is accepted by the beam line
 
 	    _acc = 0;
 
@@ -540,7 +532,7 @@ int main( int argc, const char **argv )
 
 	    //cout << "Ndet= " << ndet;
 	    //string cout_stuff;
-	    for (int idet=0; idet < detectors.size(); ++idet) {
+	    for (unsigned int idet=0; idet < detectors.size(); ++idet) {
 	      if (detectors[idet].decay_pion()) continue;
 	      if (detectors[idet].fName.EqualTo("plane")) continue;
 	      //cout << "idet " << idet << " name= " << detectors[idet].fName << " acc= " << detectors[idet].fAccepted << endl;
@@ -680,6 +672,7 @@ int main( int argc, const char **argv )
   hyDir->Write();
 
   fout->cd();
+  tt->GetUserInfo()->Add(&tpar_beam_mom);
   tt->Write();
 
   fout->Close();

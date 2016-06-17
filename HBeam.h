@@ -115,7 +115,7 @@ Double_t y_exp(int i, Double_t *par)
 }
 
 //______________________________________________________________________________
-void fcn(Int_t &npar, Double_t *gin, Double_t &f, Double_t *par, Int_t iflag)
+void fcn(Int_t&, Double_t*, Double_t &f, Double_t *par, Int_t)
 {
   const Int_t ndet = 3;
   //calculate chisquare
@@ -469,6 +469,8 @@ private:
 
     vector<pair<int,int> > fqdpoles;
 
+    TF1 *gen_func;
+
  public:
 
     HBeam();
@@ -496,8 +498,9 @@ private:
     void   propagate_to_det(HBeamElement det, double *start, double *final);
     void   store_history(HBeamParticle &part, HBeamElement &det, double *state, const char* tag, vector<HBeamParticle> &hist);
     void   apply_ms_kick(TVector3 &p3, HBeamElement &det, double &dthe, double &dphi);
-    void   do_pion_decay(HBeamParticle &part, HBeamElement &det, double &mom, double &dthe, double &dphi);
-    void   back_propagate(HBeamParticle &part, HBeamElement &det, double *state, double *back_prop);
+    void   do_pion_decay(HBeamParticle &part, double &mom, double &dthe, double &dphi);
+    void   back_propagate(HBeamParticle &part, const HBeamElement &det, double *state, double *back_prop);
+    void   back_propagate(const double &dp, const HBeamElement &det, double *state, double *back_prop);
     void  print_elements();
     void  print_detectors();
 
@@ -513,14 +516,16 @@ private:
     double calc_decay_distance_wrong(HBeamParticle &part);
     bool calc_decay_distance(HBeamParticle& part, double &dist, int &pair_idx);
     void print_dets(TString name);
+    void print_state(TString tag, double *state);
 
     Double_t                 digitize_pos(const Double_t &pos, const Double_t &pitch);
     Double_t                 solve_delta(const Double_t &xd1, const Double_t &xd2, const Double_t &phi, int &status);
     Double_t                 solve_theta(const Double_t &xd1, const Double_t &xd2, const Double_t &phi, const Double_t &delta);
     void                     solve_phi_and_y(const Double_t &yd1, const Double_t &yd2, const Double_t &th, const Double_t &del, Double_t &ph, Double_t &y);
-    void                     transport_to(const HBeamElement &det, const vector<Double_t> &state_in, vector<Double_t> &state_out);
+  //void                     transport_to(const HBeamElement &det, const vector<Double_t> &state_in, vector<Double_t> &state_out);
+    void                     transport_to(const HBeamElement &det, double *state_in, double *state_out, Unit unit);
     void                     solve_state();
-
+    void                     calc_error(double *state_d1, const HBeamElement &det1, const HBeamElement &det2, double &xd2e, double &yd2e);
     void                     store_solution(const char *tag, vector<Double_t> &state_targ, HBeamParticle& part);
     int                     solution_tdr(Double_t *x, Double_t *y, vector<Double_t> &state);
     int                     solution_minuit(vector<Double_t> &state);
@@ -556,6 +561,10 @@ HBeam::HBeam()
   gMinuit = new TMinuit(5);
   gMinuit->SetFCN(fcn);
   gMinuit->SetPrintLevel(-1);
+
+  gen_func = new TF1("pol2","[0]+x*x*[1]",-1.1999999,1.19999999);
+  gen_func->SetParameter(0,1);
+  gen_func->SetParameter(1,100);
 
 }
 
@@ -728,7 +737,8 @@ void HBeam::setBeam(Int_t id,
 
 void HBeam::setBeamResolution(Double_t dpx,Double_t dpy,Double_t dpz)
 {
-    fBeam.fMomRes.SetXYZ(TMath::Abs(dpx),TMath::Abs(dpy),TMath::Abs(dpz));
+  //fBeam.fMomRes.SetXYZ(TMath::Abs(dpx),TMath::Abs(dpy),TMath::Abs(dpz));
+  fBeam.fMomRes.SetXYZ(TMath::Abs(dpx),TMath::Abs(dpy),dpz);
 }
 
 void HBeam::setBeamProfile(Double_t sigma_beam,Double_t flat_radius)
@@ -763,7 +773,6 @@ void  HBeam::createBeam(HBeamParticle& part)
     } else  if ( fBeam.fMomRes.Z()==0 ) {
       p = fBeam.fBeamMom;
     } else {
-      // generate envents concentrated at integral values of dp between -5% and +5%
 
       // Option A
       // equal weights for each integer value of delta_p
@@ -771,10 +780,6 @@ void  HBeam::createBeam(HBeamParticle& part)
 
       // Option B
       // Higher weight for higher values of delta_p (->+/-5%) parametrized by gen_func
-      TF1 *gen_func;
-      gen_func = new TF1("pol2","[0]+x*x*[1]",-1.1999999,1.19999999);
-      gen_func->SetParameter(0,1);
-      gen_func->SetParameter(1,100);
       double delrnd = (double) ( (int) (gen_func->GetRandom() * 5) ) / 100.0;
       p  = fBeam.fBeamMom * (1.0 + delrnd);
 
@@ -1004,7 +1009,7 @@ void HBeam::apply_ms_kick(TVector3 &p3, HBeamElement &det, double &dthe, double 
   dphi += gRandom->Gaus(0.0, sigma_ms);
 }
 
-void HBeam::do_pion_decay(HBeamParticle &part, HBeamElement &det, double &mom, double &the, double &phi) {
+void HBeam::do_pion_decay(HBeamParticle &part, double &mom, double &the, double &phi) {
 
   part.fPid = muon_pid;
   // TODO: set the angles for the muon
@@ -1036,10 +1041,8 @@ void HBeam::do_pion_decay(HBeamParticle &part, HBeamElement &det, double &mom, d
 
 }
 
-void HBeam::back_propagate(HBeamParticle &part, HBeamElement &det, double *state, double *back_prop) {
+void HBeam::back_propagate(const double &dp, const HBeamElement &det, double *state, double *back_prop) {
 
-  // Calculate "back propagation" matrix to be used for recalculating initial state after introducing MS smear
-  Double_t dp = part.dp() * ffromPluto[4];
   TMatrixD prop(4,4);
   for (int i=0; i<4; ++i) {
     for (int j=0; j<4; ++j) {
@@ -1062,6 +1065,12 @@ void HBeam::back_propagate(HBeamParticle &part, HBeamElement &det, double *state
   for (int i=0; i<4; ++i) back_prop[i] = tvd_state[i];
   back_prop[4] = state[4];
 
+}
+
+void HBeam::back_propagate(HBeamParticle &part, const HBeamElement &det, double *state, double *back_prop) {
+  // Calculate "back propagation" matrix to be used for recalculating initial state after introducing MS smear
+  Double_t dp = part.dp() * ffromPluto[4];
+  back_propagate(dp, det, state, back_prop);
 }
 
 Bool_t HBeam::transport_with_ms_and_pion_decay(HBeamParticle& part){
@@ -1140,14 +1149,20 @@ Bool_t HBeam::transport_with_ms_and_pion_decay(HBeamParticle& part){
     if (det.apply_ms()) {
       //cout << " ms! name= " << det.fName << " dist= " << det.fDistance << endl;
       tag = "_POST_MS";
+
+      //print_state("ms_state_in: ", state);
       apply_ms_kick(part.fP, det, state[1], state[3]);
+      //print_state("ms_state_out: ", state);
+
       store_history(part, det, &state[0], tag, fhistory);
     } else if (det.decay_pion()) {
       //cout << " decay! name= " << det.fName << " dist= " << det.fDistance << endl;
       tag = "_POST_PD";
-      //cout << "state in: " << state[4] << ", " << state[1] << ", " << state[3] << ", " << endl;
-      do_pion_decay(part, det, state[4], state[1], state[3]);
-      //cout << "state out: " << state[4] << ", " << state[1] << ", " << state[3] << ", " << endl;
+
+      //print_state("pd_state_in: ", state);
+      do_pion_decay(part, state[4], state[1], state[3]);
+      //print_state("pd_state_out: ", state);
+
       store_history(part, det, &state[0], tag, fpd_history);
     } else {
       cout << "Warning! this case can cause trouble! " << endl;
@@ -1343,7 +1358,7 @@ Double_t HBeam::solve_delta(const Double_t &xd1, const Double_t &xd2, const Doub
 
 }
 
-double HBeam::solve_theta(const Double_t &xd1, const Double_t &xd2, const Double_t &phi, const Double_t &delta) {
+double HBeam::solve_theta(const Double_t &xd1, const Double_t&/*xd2*/, const Double_t &phi, const Double_t &delta) {
 
   // if phi is non-zero (after first iteration), these transformations will take that into account
   const double _xd1 = xd1 - par.T14d1*phi;
@@ -1374,11 +1389,11 @@ void HBeam::solve_phi_and_y(const Double_t &yd1, const Double_t &yd2, const Doub
 
 }
 
-void HBeam::transport_to(const HBeamElement &det, const vector<Double_t> &state_in /* Pluto Units Required*/, vector<Double_t> &state_out /* Answer will be in pluto units too*/) {
+void HBeam::transport_to(const HBeamElement &det, double *state_in, double *state_out, Unit unit) {
 
   for (int i=0; i<5; ++i) state_out[i] = 0.0; // for safety
   vector<Double_t> _state_in(5);
-  for (int i=0; i<5; ++i) _state_in[i] = state_in[i] * ffromPluto[i];
+  for (int i=0; i<5; ++i) _state_in[i] = state_in[i] * (unit==Unit::PLUTO ? ffromPluto[i]:1.0);
 
   for(Int_t i = 0; i < 5; i ++){ // state vars
     // first order Term
@@ -1392,8 +1407,30 @@ void HBeam::transport_to(const HBeamElement &det, const vector<Double_t> &state_
       }
     }
   }
-  for (int i=0; i<5; ++i) state_out[i] *= ftoPluto[i];
+  for (int i=0; i<5; ++i) if (unit==Unit::PLUTO) state_out[i] *= ftoPluto[i];
+
 }
+
+//void HBeam::transport_to(const HBeamElement &det, const vector<Double_t> &state_in /* Pluto Units Required*/, vector<Double_t> &state_out /* Answer will be in pluto units too*/) {
+//
+//  for (int i=0; i<5; ++i) state_out[i] = 0.0; // for safety
+//  vector<Double_t> _state_in(5);
+//  for (int i=0; i<5; ++i) _state_in[i] = state_in[i] * ffromPluto[i];
+//
+//  for(Int_t i = 0; i < 5; i ++){ // state vars
+//    // first order Term
+//    for(Int_t j = 0; j < 5; j ++){ //
+//      state_out[i] += det.Tij[i][j] * _state_in[j];
+//    }
+//    // second order Term
+//    for(Int_t j = 0; j < 5; j ++){ //
+//      for(Int_t k = j; k < 5; k ++){ //
+//	state_out[i] += det.Tijk[i][j][k] * _state_in[j] * _state_in[k];
+//      }
+//    }
+//  }
+//  for (int i=0; i<5; ++i) state_out[i] *= ftoPluto[i];
+//}
 
 int HBeam::solution_tdr(Double_t *x, Double_t *y, vector<Double_t> &state) {
 
@@ -1401,28 +1438,24 @@ int HBeam::solution_tdr(Double_t *x, Double_t *y, vector<Double_t> &state) {
   // Solve for momentum and position using procedure described in TDR at 1) prod. target 2) Hades 3) Diamond Det, store in fsolution with appropriate name
   // [0]->x [1]->the [2]->y, [3]->phi, [4]->Delta
   // Assumption of the method: Zero object size in horizontal, so state[0] remains at 0.0
-
   const Double_t tolerance = 1e-4; /// required accuracy
-  const Int_t max_niter = 2;
+  const Int_t max_niter = 5;
   vector<Double_t> prev(5,0.0);
   int niter = 0;
   bool converged = false;
   int status = 0;
+
+  //cout <<  "MES: x[0]= " << x[0] << " x[1]= " << x[1] <<  " y[0]= " << y[0] << " y[1]= " << y[1] << endl;
+
   while (niter<max_niter && !converged ) {
     for (int i=0; i<5; ++i) prev[i] = state[i];
 
-    //state[4] = solve_delta(xd1, xd2, state[3]);
-    //state[1] = solve_theta(xd1, xd2, state[3], state[4]);
-    //solve_phi_and_y(yd1, yd2, state[1], state[4], state[3], state[2]);
-
     //cout << "===================== STEP " << niter << "=======================" <<endl;
-    //cout << "state0 = " << state[0] << " state1 = " << state[1] << " state2 = " << state[2] << " state3 = " << state[3] << " state4 = " << state[4] << endl;
-    //cout <<  "x[0]= " << x[0] << " x[1]= " << x[1] << " phi= " << state[3] << endl;
-
+    //print_state("IIN: ", &state[0]);
     state[4] = solve_delta(x[0], x[1], state[3], status);
     state[1] = solve_theta(x[0], x[1], state[3], state[4]);
     solve_phi_and_y(y[0], y[1], state[1], state[4], state[3], state[2]);
-
+    //print_state("OUT: ", &state[0]);
     //cout << "============== END OF STEP " << niter << "=======================" <<endl;
 
     converged = true;
@@ -1435,6 +1468,8 @@ int HBeam::solution_tdr(Double_t *x, Double_t *y, vector<Double_t> &state) {
 }
 
 int HBeam::solution_minuit(vector<Double_t> &state /*Everyting in Transport units here*/ ) {
+
+  //print_state("MinuitIn: ", &state[0]);
 
   // Does this have to be done for each fit?
   //arglist[0] = 1;
@@ -1460,11 +1495,11 @@ int HBeam::solution_minuit(vector<Double_t> &state /*Everyting in Transport unit
   //gMinuit->mnparm(4, "del", state[4], step[4], -del_max, del_max, ierflg);
   gMinuit->mnparm(4, "del", state[4], step[4], 0, 0, ierflg);
 
-  gMinuit->FixParameter(1);
-  gMinuit->FixParameter(3);
+  //gMinuit->FixParameter(1);
+  //gMinuit->FixParameter(3);
 
-  gMinuit->FixParameter(0);
-  gMinuit->FixParameter(2);
+  //gMinuit->FixParameter(0);
+  //gMinuit->FixParameter(2);
 
   //gMinuit->FixParameter(4);
 
@@ -1495,13 +1530,12 @@ int HBeam::solution_minuit(vector<Double_t> &state /*Everyting in Transport unit
     }
   }
 
-  // here is where the real fitting happens
   Double_t error = 0.0;
   for (int i=0; i<5; ++i) gMinuit->GetParameter(i, state[i], error);
 
-  for (int i=0; i<4; ++i) {
-    if (init[i] != state[i]) {cout << "WTF init[" << i << "]("  << init[i] << ") != " << " state[" << i << "](" << state[i] << ")" << endl;  }
-  }
+  //for (int i=0; i<4; ++i) {
+  //  if (init[i] != state[i]) {cout << "WTF init[" << i << "]("  << init[i] << ") != " << " state[" << i << "](" << state[i] << ")" << endl;  }
+  //}
 
   if (verb) {
     if (ierflg!=0) {
@@ -1515,11 +1549,59 @@ int HBeam::solution_minuit(vector<Double_t> &state /*Everyting in Transport unit
 
 }
 
+void HBeam::print_state(TString tag, double *state) {
+  cout << tag << "{";
+  for (int ii=0; ii < 5; ++ii) { cout << state[ii] << (ii<4?", ":"");  }
+  cout << "}" << endl;
+}
+
+void HBeam::calc_error(double *state_d1, const HBeamElement &det1, const HBeamElement &det2, double &xd2e, double &yd2e) {
+
+  //double state_d1[5] = {xd1, 0, yd1, 0, 0};
+  double back_prop[5] = {0.0};
+  //print_state("d1: ", state_d1);
+  back_propagate(0, det1, state_d1, back_prop);
+  //print_state("d1bp: ", back_prop);
+  double retrace[5] = {0.0};
+  transport_to(det2, back_prop, retrace, Unit::TRANSPORT);
+  //print_state("d1r: ", retrace);
+
+  TLorentzVector tmp(TVector3(0,0,fBeam.fBeamMom), TMath::Hypot(fBeam.fBeamMom, pion_mass));
+  const double sigma_ms = 13.6 * sqrt(det1.fXoX0) / ( tmp.P() * tmp.Beta() ); /* mrad */
+  //cout << "det1.fName= " << det1.fName << " det1.fXoX0= " << det1.fXoX0 << " sigma_ms= " << sigma_ms << endl;
+
+  double state_d1_e[5] = {state_d1[0], state_d1[1]+sigma_ms, state_d1[2], state_d1[3]+sigma_ms, state_d1[4]};
+  //print_state("d1e: ", state_d1_e);
+  double back_prop_e[5] = {0.0};
+  back_propagate(0, det1, state_d1_e, back_prop_e);
+  //print_state("d1bpe: ", back_prop_e);
+  double retrace_e[5] = {0.0};
+  transport_to(det2, back_prop_e, retrace_e, Unit::TRANSPORT);
+  //print_state("d1re: ", retrace_e);
+
+  xd2e = retrace_e[0] - retrace[0];
+  yd2e = retrace_e[2] - retrace[2];
+
+  if (xd2e > det2.fxCut ) {
+    //cout << " ms error in x larger than detector size. seting to detector size" << endl;
+    xd2e = det2.fxCut;
+  }
+
+  if (yd2e > det2.fyCut ) {
+    //cout << " ms error in x larger than detector size. seting to detector size" << endl;
+    yd2e = det2.fyCut;
+  }
+
+}
+
 void HBeam::solve_state() {
 
   //cout << "========================================== " << endl;
   // fetch hit position in each detector whose hit position is used in the reconstrction
-  for (unsigned int i=0; i<det_idx.size(); ++i) {
+  //cout << " -------------------------------------- " << endl;
+  //for (unsigned int i=0; i<det_idx.size(); ++i) {
+  for (unsigned int i=0; i<3; ++i) {
+    //cout << "det " << i << "= " << fdetectors[det_idx[i]].fName << endl;
 
     bool digi = fdetectors[det_idx[i]].fDigi;
     Double_t pitch = fdetectors[det_idx[i]].fPitch*ffromPluto[0];  // cm
@@ -1530,7 +1612,7 @@ void HBeam::solve_state() {
     x_mes[i] = digi ? digitize_pos( x_det , pitch ): x_det;
     y_mes[i] = digi ? digitize_pos( y_det , pitch ): y_det;
     //cout << "det " << det_idx[i] << "  " << fdetectors[det_idx[i]].fName << " x_det = " << x_det
-    //	 << " pitch= " << pitch << " x_det_digi= " << x_mes[i] << endl;
+    // 	 << " pitch= " << pitch << " x_det_digi= " << x_mes[i] << endl;
     x_mes_e[i] = y_mes_e[i] = pitch/TMath::Sqrt(12);
   }
 
@@ -1541,20 +1623,57 @@ void HBeam::solve_state() {
   part.fStatus = state;
   store_solution("TDR", state_targ, part);
 
+  // Adjust the errors on det2 and diamond to take into account the MS in det1 and det2 resp
+  // Use information from TDR solution to get a delta, angle dependent error
+  for (unsigned int i=1; i<3; ++i) {
+
+    // Transport solution back to detector to get rough estimate of delta, phi and theta
+    vector<Double_t> state_det(5,0.0);
+    transport_to(fdetectors[det_idx[i]], &state_targ[0], &state_det[0], Unit::TRANSPORT);
+    state_det[0] = x_mes[i];
+    state_det[2] = y_mes[i];
+
+    double er_ms_x=0, er_ms_y=0;
+    calc_error(&state_det[0], fdetectors[det_idx[i-1]], fdetectors[det_idx[i]], er_ms_x, er_ms_y);
+
+    //cout << " exdig_d"<<i<<"= " << x_mes_e[i] << " eydig_d"<<i<<"= " << y_mes_e[i];
+    x_mes_e[i] += sqrt(er_ms_x*er_ms_x/4 + x_mes_e[i]*x_mes_e[i]);
+    y_mes_e[i] += sqrt(er_ms_y*er_ms_y/4 + y_mes_e[i]*y_mes_e[i]);
+    //cout << " exms_d"<<i<<"= " << er_ms_x << " eyms_d"<<i<<"= " << er_ms_y;
+    //cout << " extot_d"<<i<<"= " << x_mes_e[i] << " eytot_d"<<i<<"= " << y_mes_e[i] << endl;
+
+  }
+
+  assert (x_mes_e[2] < 10000);
+
   //double init[5] = {0.0};
   //for (int i=0; i<5; ++i) { init[i] = state_targ[i]; }
   solution_minuit(state_targ);
   store_solution("MIN", state_targ, part);
 
   // Save the "dgitized" positions in detector 1 and 2
-  state_targ[1] = -9999.0;
-  state_targ[3] = -9999.0;
-  state_targ[4] = -9999.0;
+  vector<Double_t> state_digi(5,0.0);
   for (int idet=0; idet<3; idet++) {
-    state_targ[0] = x_mes[idet] * ftoPluto[0];
-    state_targ[2] = y_mes[idet] * ftoPluto[2];
-    part.set_state(&state_targ[0], fBeam.fBeamMom, fdetectors[det_idx[idet]].fDistance, Unit::PLUTO);
+    state_digi[0] = x_mes[idet] * ftoPluto[0];
+    state_digi[2] = y_mes[idet] * ftoPluto[2];
+    part.set_state(&state_digi[0], fBeam.fBeamMom, fdetectors[det_idx[idet]].fDistance, Unit::PLUTO);
     part.fName = Form("DIGI_POS_%s",fdetectors[det_idx[idet]].fName.Data());
+    fsolution.push_back(part);
+  }
+
+  // Save the "errors" on the positions in detector 1 and 2 and hades
+  vector<Double_t> state_er(5,0.0);
+  for (int idet=1; idet<3; idet++) {
+    state_er[1] = fdetectors[det_idx[idet]].fPitch*ffromPluto[0]/TMath::Sqrt(12);
+    state_er[3] = fdetectors[det_idx[idet]].fPitch*ffromPluto[0]/TMath::Sqrt(12);
+
+    state_er[0] = x_mes_e[idet];// * ftoPluto[0];
+    state_er[2] = y_mes_e[idet];// * ftoPluto[2];
+
+    //cout << "stored: exd"<<idet<<"= " << x_mes_e[idet] << " eyd"<<idet<<" " << y_mes_e[idet] << endl;
+
+    part.set_state(&state_er[0], fBeam.fBeamMom, fdetectors[det_idx[idet]].fDistance, Unit::TRANSPORT);
+    part.fName = Form("ERR_MS_%s",fdetectors[det_idx[idet]].fName.Data());
     fsolution.push_back(part);
   }
 
@@ -1567,18 +1686,25 @@ void HBeam::store_solution(const char *tag, vector<Double_t> &state_targ, HBeamP
   fsolution.push_back(part);
 
   vector<Double_t> state_diam(5,0.0);
-  transport_to(fdetectors[det_idx[2]], state_targ, state_diam);
+  transport_to(fdetectors[det_idx[2]], &state_targ[0], &state_diam[0], Unit::TRANSPORT);
   part.set_state(&state_diam[0], fBeam.fBeamMom, fdetectors[det_idx[2]].fDistance, Unit::TRANSPORT);
   part.fName = Form("%s_SOLUTION_DIAM",tag);
   fsolution.push_back(part);
 
   vector<Double_t> state_hades(5,0.0);
-  transport_to(fdetectors[det_idx[3]], state_targ, state_hades);
+  transport_to(fdetectors[det_idx[3]], &state_targ[0], &state_hades[0], Unit::TRANSPORT);
   part.set_state(&state_hades[0], fBeam.fBeamMom, fdetectors[det_idx[3]].fDistance, Unit::TRANSPORT);
   part.fName = Form("%s_SOLUTION_HAD",tag);
   fsolution.push_back(part);
 }
 
+/**
+ * Calculates decay distance and returns a boolean:
+ *    true - if decay took place inside magnetic element
+ *           Sets pair_idx to the index of the element's entry-exit face pair array
+ *    false - if dcay took place in drift space between two magentic elements
+ *           Sets pair_idx to -1
+ */
 bool HBeam::calc_decay_distance(HBeamParticle& part, double &dist, int &pair_idx) {
   double d0 = felements[0].fDistance - 900;
   TLorentzVector p4pip = TLorentzVector(part.fP, TMath::Hypot(part.fP.Mag(), pion_mass));
@@ -1598,6 +1724,10 @@ bool HBeam::calc_decay_distance(HBeamParticle& part, double &dist, int &pair_idx
   return false;
 }
 
+/**
+ * Returns the decay distance, adjusted to begnining/end of magnetic element if the
+ *   decay took place within one
+ */
 double HBeam::calc_decay_distance(HBeamParticle& part) {
   double d0 = felements[0].fDistance - 900;
   TLorentzVector p4pip = TLorentzVector(part.fP, TMath::Hypot(part.fP.Mag(), pion_mass));
@@ -1645,6 +1775,7 @@ void HBeam::print_dets(TString tag) {
 vector <HBeamParticle>& HBeam::newParticle()
 {
 
+  //cout << endl;
   //cout << "-------------------------" << endl;
   //cout << "------ new event --------" << endl;
   HBeamParticle part(fBeam);
@@ -1656,39 +1787,54 @@ vector <HBeamParticle>& HBeam::newParticle()
   // beam profile + smearing
   createBeam(part);
 
-  double distance = 0;
-  int pair_idx = -1;
-  if (calc_decay_distance(part, distance, pair_idx)) {
-    get_pion_decay_plane().
-      interpolate_transport_matrix(distance,
-				   felements[fqdpoles[pair_idx].first],
-				   felements[fqdpoles[pair_idx].second]);
-  } else {
-    get_pion_decay_plane().set_distance(find_reference_element(distance), distance);
+  Double_t init_state[5] = { part.x(), part.th(), part.y(), part.ph(), part.dp() };
+  for (int ii=0; ii < 5; ++ii) init_state[ii] *= ffromPluto[ii];
+  //print_state("init_beam: " , init_state);
+
+  Bool_t accepted = false;
+  int ms_pd = 1;
+
+  if (ms_pd == 0) {
+    // Plain transport with no MS, no pion decay
+    part.fName = "beam";
+    fhistory.push_back(part);
+    transport(part);          // transport particle through beamline
+    accepted = createDetectorHits(part); // fill detectors
   }
 
-  // works !!
-  //double distance = calc_decay_distance_wrong(part);
-  //double distance = calc_decay_distance(part);
-  //get_pion_decay_plane().set_distance(find_reference_element(distance), distance);
+  else if (ms_pd == 1) {
+    // Transport with MS only
+    // MS effect added for each detector registered with non zero thinkness.
+    // Creates and stores detector hits itself, no need to call createDetectorHits
+    //accepted = transport_with_ms(part);
+    // if we don't add a pion decay plane, this function doesn't do any pion decay
+    accepted = transport_with_ms_and_pion_decay(part);
+  }
 
-  std::sort(fdetectors.begin(),fdetectors.end(),sort_by_dist_from_prod);
+  else {
+    // Transport with MS & pion decay
+    double distance = 0;
+    int pair_idx = -1;
+    if (calc_decay_distance(part, distance, pair_idx)) {
+      get_pion_decay_plane().
+	interpolate_transport_matrix(distance,
+				     felements[fqdpoles[pair_idx].first],
+				     felements[fqdpoles[pair_idx].second]);
+    } else {
+      get_pion_decay_plane().set_distance(find_reference_element(distance), distance);
+    }
 
-  // Plain transport with no MS, no pion decay
-  //part.fName = "beam";
-  //fhistory.push_back(part);
-  //transport(part);          // transport particle through beamline
-  //Bool_t accepted = createDetectorHits(part); // fill detectors
+    // works !!
+    //double distance = calc_decay_distance_wrong(part);
+    //double distance = calc_decay_distance(part);
+    //get_pion_decay_plane().set_distance(find_reference_element(distance), distance);
+    std::sort(fdetectors.begin(),fdetectors.end(),sort_by_dist_from_prod);
 
-  // Transport with MS decay only
-  // MS effect added for each detector registered with non zero thinkness.
-  // Creates and stores detector hits itself, no need to call createDetectorHits
-  //Bool_t accepted = transport_with_ms(part);
-
-  // Transport with MS + pion decay
-  // MS effect added for each detector registered with non zero thinkness.
-  // In addition pions are allowed to decay. Creates and stores detector hits
-  Bool_t accepted = transport_with_ms_and_pion_decay(part);
+    // Transport with MS + pion decay
+    // MS effect added for each detector registered with non zero thinkness.
+    // In addition pions are allowed to decay. Creates and stores detector hits
+    accepted = transport_with_ms_and_pion_decay(part);
+  }
 
   // calc particle at 0,0,0 ideal target
   Double_t* out = &felements[fnum_target].fout[0];
@@ -1704,6 +1850,10 @@ vector <HBeamParticle>& HBeam::newParticle()
   part.fName   = felements[fnum_target].fName;
   part.fAccepted = accepted;
   fhistory.push_back(part);
+
+  // solve_state needs the order of detectors to be restored!!
+  get_pion_decay_plane().set_distance(felements[fnum_target], 100);
+  std::sort(fdetectors.begin(),fdetectors.end(),sort_by_dist_from_prod);
 
   solve_state();
   return fhistory;
@@ -1870,7 +2020,7 @@ Bool_t HBeam::initBeamLine(TString filename,Int_t targetElementNum,Bool_t debug)
 }
 
 void HBeam::print_elements() {
-  for (int ii=0; ii < felements.size(); ++ii) {
+  for (unsigned int ii=0; ii < felements.size(); ++ii) {
     cout << "Elt" << ii << ": fName= " << felements[ii].fName;
     cout << " fDistance = " << felements[ii].fDistance;
     cout << " accType= " << felements[ii].fCutType;
@@ -1879,7 +2029,7 @@ void HBeam::print_elements() {
 }
 
 void HBeam::print_detectors() {
-  for (int ii=0; ii < fdetectors.size(); ++ii) {
+  for (unsigned int ii=0; ii < fdetectors.size(); ++ii) {
     cout << "Det" << ii << ": fName= " << fdetectors[ii].fName;
     cout << " fDistance = " << fdetectors[ii].fDistance;
     cout << " accType= " << fdetectors[ii].fCutType;
