@@ -46,7 +46,7 @@ int main( int argc, const char **argv )
 
   if (argc!=7&&argc!=9) {
     cout << "Need minimum either 5 or 7 arguments. " << argc-1 << " given" << endl;
-    cout << "./gen Nevt[10000] dphi[50mrad] dth[10mrad] xyr[0.5mm] dp[6\%] p[GeV] [Digitzie?{00,01,10/11} [MS{00,01,10/11}]" << endl;
+    cout << "./gen Nevt[10000] dphi[50mrad] dth[10mrad] xyr[0.5mm] p[GeV] dp[6\%] [Digitzie?{00,01,10/11} [MS{00,01,10/11}]" << endl;
     return -1;
   }
 
@@ -195,11 +195,11 @@ int main( int argc, const char **argv )
 
   // Args for adding detector: thicknes[cm], rad len[cm], segmentation[mm], distance relative to HADES [mm], acceptance flag, acceptance size x, y [mm]
   // Detectors should be added in decreasing order of distance from hades target for the MS simulation to work properly
-  //pionbeam.addDetector("det1",    do_ms_pitrk1?0.03:0.0, 9.36, digi_pitrk, 0.78,     -17092.6, 2, 50., 50.);  // 17 du fichirt
+  //pionbeam.addDetector("det1",    do_ms_pitrk1?0.03:0.0, 9.36, digi_pitrk, 0.78,     -17092.6, 2, 50., 50.);  // 17 du fichier
   //pionbeam.addDetector("det2",    do_ms_pitrk2?0.03:0.0, 9.36, digi_pitrk, 0.78,     -5400.0,  2, 50., 50.); //
 
   // Locations along z compatible with the parameter file
-  pionbeam.addDetector("det1",    do_ms_pitrk1?0.03:0.0, 9.36, digi_pitrk, 0.78,     -17209, 2, 50., 50.);  // 17 du fichirt
+  pionbeam.addDetector("det1",    do_ms_pitrk1?0.03:0.0, 9.36, digi_pitrk, 0.78,     -17209, 2, 50., 50.);  // 17 du fichier
   pionbeam.addDetector("det2",    do_ms_pitrk2?0.03:0.0, 9.36, digi_pitrk, 0.78,     -5442,  2, 50., 50.); //
 
   pionbeam.addDetector("plane",   0.0,                  1.0,  false,      0.0,      -1300.0,  1, 60., 60.);
@@ -400,10 +400,14 @@ int main( int argc, const char **argv )
       if(asciiFile) fprintf(asciiFile," %i %i %f %f %i\n",ctEvt,nParticle,blast,event_impact_param,flag);
       ctEvents ++;
 
+      if (ctTotalTry>=nEvents) break;
+
       Int_t nPart             = 0;
       Int_t ctTryParticle = 0;
       while (nPart < nParticle && ctTryParticle <= maxTry)
 	{
+
+	  if (ctTotalTry>=nEvents) break;
 
 	  vector<TLorentzVector> vPion;
 
@@ -413,6 +417,8 @@ int main( int argc, const char **argv )
 	  Int_t ctTry = 0;
 	  while(reDo && ctTry < maxTry)
 	    {  // try as long a particle is accepted by the beam line
+
+	      if (ctTotalTry>=nEvents) break;
 
 	    _acc = 0;
 

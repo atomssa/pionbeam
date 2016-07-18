@@ -1,11 +1,14 @@
 #include <iostream>
 #include <cstdio>
-#include <math>
+#include <cmath>
 //#include <vector>
 #include <cstdlib>
 
+#include <iostream>
+
 #include "TGraph.h"
 #include "TRandom3.h"
+#include "TMath.h"
 
 using namespace std;
 
@@ -89,35 +92,35 @@ void ThetaLab_mu(float p_pi, float theta_cm_mu, double &_th, double &_plab, bool
 
 int decroissance_pi(float _p_pi = 1.0){
 
-	//	random.seed(60934386)
-	TRandom3 rand;
-	rand.SetSeed();
-	//float _p_pi;
-	//cout << "Entrez l'impulsion des pions (en GeV) : p = ";
-	//cin >> _p_pi;
+  //	random.seed(60934386)
+  TRandom3 rand;
+  rand.SetSeed();
+  //float _p_pi;
+  //cout << "Entrez l'impulsion des pions (en GeV) : p = ";
+  //cin >> _p_pi;
 
-	double x[1000] = {0.0};
-	double y[1000] = {0.0};
+  double x[1000] = {0.0};
+  double y[1000] = {0.0};
 
-	for (int i=0;i<1000;i++){
-	  //double _theta_cm_mu = rand.Uniform(TMath::Pi());
-	  double _theta_cm_mu = TMath::ACos(gRandom->Uniform(2.0)-1.0);
-	  double _phi_cm_mu = rand.Uniform(2*TMath::Pi());
-	  if (i < 10){
-	    cout << "i: " << i <<  " th_cm_mu = " << _theta_cm_mu << endl;
-	  }
-	  double _theta_lab_mu = 0.0, _p_lab_mu = 0.0;
-	  ThetaLab_mu(_p_pi, _theta_cm_mu, _theta_lab_mu, _p_lab_mu);
-	  cout << "th_lab_mu= " << _theta_lab_mu << " _p_lab_mu= " << _p_lab_mu << endl;
-	  x[i] = 1000*_theta_lab_mu;
-	  y[i] = _p_lab_mu;
-	}
+  for (int i=0;i<1000;i++){
+    //double _theta_cm_mu = rand.Uniform(TMath::Pi());
+    double _theta_cm_mu = TMath::ACos(gRandom->Uniform(2.0)-1.0);
+    double _phi_cm_mu = rand.Uniform(2*TMath::Pi());
+    if (i < 10){
+      cout << "i: " << i <<  " th_cm_mu = " << _theta_cm_mu << endl;
+    }
+    double _theta_lab_mu = 0.0, _p_lab_mu = 0.0;
+    ThetaLab_mu(_p_pi, _theta_cm_mu, _theta_lab_mu, _p_lab_mu);
+    cout << "th_lab_mu= " << _theta_lab_mu << " _p_lab_mu= " << _p_lab_mu << endl;
+    x[i] = 1000*_theta_lab_mu;
+    y[i] = _p_lab_mu;
+  }
 
-	TGraph *graph = new TGraph(1000, x, y);
-	graph->SetTitle("Theta vs p_{LAB}");
+  TGraph *graph = new TGraph(1000, x, y);
+  graph->SetTitle("Theta vs p_{LAB}");
 
-	graph->Draw("A*");
+  graph->Draw("A*");
 
-	return 0;
+  return 0;
 
 }

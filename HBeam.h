@@ -248,6 +248,26 @@ public:
       }
     }
 
+  void copy_transport_matrix(const HBeamElement &rhs) {
+    for (int j=0; j<5; ++j) {
+      Tij[0][j] = rhs.Tij[0][j];
+      Tij[1][j] = rhs.Tij[1][j];
+      Tij[2][j] = rhs.Tij[2][j];
+      Tij[3][j] = rhs.Tij[3][j];
+      Tij[4][j] = rhs.Tij[4][j];
+    }
+    for (int j=0; j<5; ++j) {
+      for (int k=0; k<5; ++k) {
+	Tijk[0][j][k] = rhs.Tijk[0][j][k];
+	Tijk[1][j][k] = rhs.Tijk[1][j][k];
+	Tijk[2][j][k] = rhs.Tijk[2][j][k];
+	Tijk[3][j][k] = rhs.Tijk[3][j][k];
+	Tijk[4][j][k] = rhs.Tijk[4][j][k];
+      }
+    }
+
+  }
+
     void clear()
     {
 	for(Int_t i = 0; i < 5; i ++) {
@@ -337,6 +357,49 @@ public:
     }
 
 };
+
+HBeamElement pi_det2;
+double target_fcn_det2[5];
+double final_fcn_det2[5];
+double sigma_fcn_det2[5] = {0.5, 50, 0.5, 10, 6};
+
+void fcn_det2(Int_t&, Double_t*, Double_t &f, Double_t *par, Int_t) {
+
+  double beam[5] = {0.};
+  for (int ii=0; ii < 4; ++ii) { beam[ii] = par[ii]; }
+  beam[4] = target_fcn_det2[4];
+  for (int ii=0; ii < 5; ++ii) { final_fcn_det2[ii] = 0.0; }
+
+  for(Int_t i = 0; i < 5; i ++){
+    for(Int_t j = 0; j < 5; j ++){ //
+      final_fcn_det2[i] += pi_det2.Tij[i][j] * beam[j];
+    }
+    for(Int_t j = 0; j < 5; j ++){ //
+      for(Int_t k = j; k < 5; k ++){ //
+  	final_fcn_det2[i] += pi_det2.Tijk[i][j][k] * beam[j] * beam[k];
+      }
+    }
+  }
+
+  //pi_det2.printTij();
+  //cout <<  "par: {";
+  //for (int ii=0; ii < 5; ++ii) { cout << par[ii] << (ii<4?", ":"");  }
+  //cout << "}" << endl;
+  //cout <<  "final: {";
+  //for (int ii=0; ii < 5; ++ii) { cout << final_fcn_det2[ii] << (ii<4?", ":"");  }
+  //cout << "}" << endl;
+  //cout  << "target: {";
+  //for (int ii=0; ii < 5; ++ii) { cout << target_fcn_det2[ii] << (ii<4?", ":"");  }
+  //cout << "}" << endl;
+
+  double chisq = 0;
+  for (int ii=0; ii < 4; ++ii) {
+    double delta = (final_fcn_det2[ii]-target_fcn_det2[ii])/sigma_fcn_det2[ii];
+    chisq += delta*delta;
+  }
+  //cout << "chi2= " << chisq << endl;
+  f = chisq;
+}
 
 class HBeamParticle {
 
@@ -456,6 +519,7 @@ private:
     Bool_t setTargetElement(UInt_t n);
 
     TMinuit *gMinuit; // for fitting
+    TMinuit *gMinuitBp; // for back propagation
     Double_t arglist[10];
     Int_t ierflg;
 
@@ -501,9 +565,9 @@ private:
     void   do_pion_decay(HBeamParticle &part, double &mom, double &dthe, double &dphi);
     void   back_propagate(HBeamParticle &part, const HBeamElement &det, double *state, double *back_prop);
     void   back_propagate(const double &dp, const HBeamElement &det, double *state, double *back_prop);
+    void   back_propagate_minuit(const HBeamElement &det, double *state, double *back_prop);
     void  print_elements();
     void  print_detectors();
-
 
     HBeamElement& find_reference_element(const int &distance);
     int get_det_idx(TString);
@@ -561,6 +625,10 @@ HBeam::HBeam()
   gMinuit = new TMinuit(5);
   gMinuit->SetFCN(fcn);
   gMinuit->SetPrintLevel(-1);
+
+  gMinuitBp = new TMinuit(5);
+  gMinuitBp->SetFCN(fcn_det2);
+  gMinuitBp->SetPrintLevel(-1);
 
   gen_func = new TF1("pol2","[0]+x*x*[1]",-1.1999999,1.19999999);
   gen_func->SetParameter(0,1);
@@ -1041,6 +1109,33 @@ void HBeam::do_pion_decay(HBeamParticle &part, double &mom, double &the, double 
 
 }
 
+void HBeam::back_propagate_minuit(const HBeamElement &det, double *state, double *back_prop) {
+
+  for (int ii=0; ii < 5; ++ii) {target_fcn_det2[ii] = state[ii];}
+  pi_det2.copy_transport_matrix(det);
+
+  Double_t step[5] = {0.0};
+  const Double_t nominal[5] = { 0.5, 10, 0.05, 50, 6.};
+  const Double_t grid_size = 1000;
+  for (int i=0; i<5; ++i) { step[i]= nominal[i]/grid_size; }
+
+  gMinuitBp->mnparm(0, "x0",  0.0, step[0], 0, 0, ierflg);
+  gMinuitBp->mnparm(1, "th0", 0.0, step[1], 0, 0, ierflg);
+  gMinuitBp->mnparm(2, "y0",  0.0, step[2], 0, 0, ierflg);
+  gMinuitBp->mnparm(3, "ph0", 0.0, step[3], 0, 0, ierflg);
+  //gMinuitBp->mnparm(4, "del", 0.0, step[4], 0, 0, ierflg);
+  arglist[0] = 5000;
+  arglist[1] = 0.1;
+  gMinuitBp->mnexcm("SIMPLEX", arglist, 2, ierflg);
+  //gMinuitBp->mnexcm("SEE", arglist, 2, ierflg);
+  gMinuitBp->mnexcm("MIGRAD", arglist, 2, ierflg);
+
+  Double_t error = 0.0;
+  for (int i=0; i<4; ++i) gMinuitBp->GetParameter(i, back_prop[i], error);
+  back_prop[4] = state[4];
+
+}
+
 void HBeam::back_propagate(const double &dp, const HBeamElement &det, double *state, double *back_prop) {
 
   TMatrixD prop(4,4);
@@ -1049,7 +1144,31 @@ void HBeam::back_propagate(const double &dp, const HBeamElement &det, double *st
       prop[i][j] = det.Tij[i][j] + det.Tijk[i][j][4] * dp;
     }
   }
+
+  //bool print_stuff = 3.44 < dp && dp < 3.48;
+  //bool print_stuff = dp!=0;
+  bool print_stuff = false;
+
+  //if (prop.Determinant()<0.1) {
+  if (false) {
+    back_propagate_minuit(det, state, back_prop);
+    return;
+  }
+
+  if (print_stuff) {
+    cout << "dpppp= " << dp << endl;
+    cout << "Dp adjusted propagation matrix: ";
+    //prop.Print();
+    cout << " Determinant= " << prop.Determinant() << endl;
+  }
+
   prop.Invert();
+
+  if (print_stuff) {
+    cout << "Dp adjusted back propagation matrix: ";
+    //prop.Print();
+    cout << " Determinant= " << prop.Determinant() << endl;
+  }
 
   double intermediate_state[5] =  {0.0};
   // Prepare state vector for multiplication by reverse propation matrix
@@ -1059,11 +1178,29 @@ void HBeam::back_propagate(const double &dp, const HBeamElement &det, double *st
   intermediate_state[3] = state[3] - (det.Tij[3][4]/*T46*/ * dp + det.Tijk[3][4][4]/*T466*/ * dp * dp );
   intermediate_state[4] = state[4];
 
+  if (print_stuff) print_state("input state: ", state);
+  if (print_stuff) print_state("intermediate state: ", intermediate_state);
+
   TVectorD tvd_state(4, intermediate_state);
   tvd_state *= prop;
 
   for (int i=0; i<4; ++i) back_prop[i] = tvd_state[i];
   back_prop[4] = state[4];
+
+  //print_state("init_state: ", state);
+  //
+  //double retrace_matrix[5] = {0.0};
+  //propagate_to_det(det, back_prop, retrace_matrix);
+  //print_state("back_prop_matrix: ", back_prop);
+  //print_state("retrace_matrix: ", retrace_matrix);
+  //
+  //double retrace_minuit[5] = {0.0};
+  //back_propagate_minuit(det, state, back_prop);
+  //propagate_to_det(det, back_prop, retrace_minuit);
+  //print_state("back_prop_minuit: ", back_prop);
+  //print_state("retrace_minuit: ", retrace_minuit);
+  //
+  //cout << "-----" << endl;
 
 }
 
@@ -1792,7 +1929,7 @@ vector <HBeamParticle>& HBeam::newParticle()
   //print_state("init_beam: " , init_state);
 
   Bool_t accepted = false;
-  int ms_pd = 1;
+  int ms_pd = 2;
 
   if (ms_pd == 0) {
     // Plain transport with no MS, no pion decay

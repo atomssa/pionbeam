@@ -1,3 +1,8 @@
+Florian/
+pluto_v5.43/
+.dir-locals.el
+cppincs.el
+
 # root files
 *.root
 *.dat

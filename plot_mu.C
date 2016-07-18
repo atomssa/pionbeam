@@ -1,5 +1,10 @@
 #include "TFile.h"
 #include "TTree.h"
+#include "TH1.h"
+#include "TPad.h"
+#include "TStyle.h"
+#include "TParameter.h"
+#include "TGaxis.h"
 
 void set_style_ana(TH1* h, int col, int rebin, bool sumw2) {
   if (rebin>1)h->Rebin(rebin);
@@ -31,8 +36,9 @@ void log() {
 
 void plot_mu(TString fin="output/ms00_ds00_xy0.5mm_dth10_dph10_p1.30.root"){
 
-  //gStyle->SetOptStat(1111111);
+  //gStyle->SetOptStat(0);
   gStyle->SetStatStyle(0);
+  TGaxis::SetMaxDigits(3);
 
   //  history[0].fName= beam
   //  history[1].fName= det1
@@ -62,7 +68,21 @@ void plot_mu(TString fin="output/ms00_ds00_xy0.5mm_dth10_dph10_p1.30.root"){
   TFile *f = TFile::Open(fin);
   TTree *t = (TTree*) f->Get("t");
 
-  float p_ref = 0.65;
+  // infer reference momentum
+  double p_ref = -9999;
+  for (int i=0; i<t->GetUserInfo()->GetEntries(); ++i)  {
+    TParameter<double> *ref_mom = (TParameter<double>*) t->GetUserInfo()->At(0);
+    const char * name = ref_mom->GetName();
+    cout << "TParameter " << i << ": name= " << name << " val= " << ref_mom->GetVal() << endl;
+    if (strcmp(name, "ref_beam_mom")==0) {
+      p_ref = ref_mom->GetVal();
+      break;
+    }
+  }
+  if (p_ref<0) {
+    cout << "Reference momentum not found in ntuple... stop! " << endl;
+    return;
+  }
 
   t->SetAlias("pbeam","p[0]");
   t->SetAlias("thbeam","th[0]");
@@ -110,15 +130,16 @@ void plot_mu(TString fin="output/ms00_ds00_xy0.5mm_dth10_dph10_p1.30.root"){
 
   //t->Draw("pmu:theta_mu_pi", "ipidec<33&&acc");
 
-  TH1F* h1=new TH1F("h1","h1",35,-0.5,34.5);
-  TH1F* h2=new TH1F("h2","h2",35,-0.5,34.5);
+  TH1F* h1=new TH1F("h1","num. #mu^{-} decay;beamline element index; #pi^{-} decay b/n element i-1 and i",35,-0.5,34.5);
+  TH1F* h2=new TH1F("h2","num. #mu^{-} in acceptance;beamline element index; #mu^{-} accepted ;",35,-0.5,34.5);
   set_style_ana(h1,4,0,0);
   set_style_ana(h2,4,0,0);
   t->Project("h1","ipidec","dpidec<0");
   t->Project("h2","ipidec","dpidec<0&&acc","same");
   //t->Project("h1","ipidec","");
   //t->Project("h2","ipidec","acc","same");
-  TH1F* hr = h2->Clone("hr");
+  TH1F* hr = (TH1F*)h2->Clone("hr");
+  hr->SetTitle("Fraction #mu^{-} accepted/decayed");
   hr->Divide(h1);
   hr->Scale(100);
   set_style_ana(hr,4,0,0);
@@ -135,13 +156,13 @@ void plot_mu(TString fin="output/ms00_ds00_xy0.5mm_dth10_dph10_p1.30.root"){
   log();
   tc->cd(3);
   hr->Draw();
-  log();
+  //log();
   tc->cd(4);
   t->Draw("pmu:theta_mu_pi>>h2d","","box");
   gDirectory->ls();
   TH2F *h2d = (TH2F*) gDirectory->Get("h2d");
   cout << "h2d_ptr= " << h2d << " axX= " << h2d->GetXaxis() << endl;
-  h2d->GetYaxis()->SetRangeUser(0,1.2);
+  //h2d->GetYaxis()->SetRangeUser(0,1.2);
 
   tc->cd(5);
   t->Draw("pmu","dpidec<0&&acc");
