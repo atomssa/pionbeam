@@ -1521,8 +1521,8 @@ int HBeam::solution_minuit(vector<Double_t> &state /*Everyting in Transport unit
   //Int_t nvpar,nparx,icstat;
   //gMinuit->mnstat(amin,edm,errdef,nvpar,nparx,icstat);
   //gMinuit->mnprin(3,amin);
-  double init[5] = {0.0};
-  for (int i=0; i<5; ++i) { init[i] = state[i]; }
+  //double init[5] = {0.0};
+  //for (int i=0; i<5; ++i) { init[i] = state[i]; }
   //double diff_Del = state[4];
   bool verb= false;
   if (verb) {
