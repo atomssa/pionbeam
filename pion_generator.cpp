@@ -50,7 +50,7 @@ int main( int argc, const char **argv )
   const bool digi_diam = argc!=10 ? false : (atoi(argv[7])%10 == 1);
   const double diam_seg = 2.45;
 
-  //const bool do_ms_diam = false;
+  const bool do_ms_diam = true;
   const bool do_ms_pitrk1 = argc!=10?false:(atoi(argv[8])/10 == 1);
   const bool do_ms_pitrk2 = argc!=10?false:(atoi(argv[8])%10 == 1);
   cout << "do_ms_pitrk1 = " << (do_ms_pitrk1?1:0) << "  do_ms_pitrk2 = " << (do_ms_pitrk2?1:0) << endl;
@@ -164,14 +164,11 @@ int main( int argc, const char **argv )
   //pionbeam.addDetector("diamond", do_ms_diam?0.03:0.0,  18.8, digi_diam,  diam_seg, -400.0,   2, 7.1, 7.1); // -29mm, ->-170mm<-
   //pionbeam.addDetector("diamond", do_ms_diam?0.03:0.0,  18.8, digi_diam,  3.0,      -400.0,   2, 7.1, 7.1);
   //pionbeam.addDetector("diamond", 0.0,                  1.0, digi_diam,  diam_seg, -400.0,   2, 7.1, 7.1); // no MS in
-
   //pionbeam.addDetector("diamond", 0.0,                  1.0, digi_diam,  diam_seg, -170.0,   2, 7.1, 7.1);
+  //pionbeam.addDetector("diamond", 0.0,                  1.0, digi_diam,  diam_seg, -170.0,   2, 7.1, 7.1);
+  pionbeam.addDetector("diamond", do_ms_diam?0.03:0.0,    18.8, digi_diam,  3.0,      -170.0,   2, 7.1, 7.1);
 
-  pionbeam.addDetector("diamond", 0.0,                  1.0, digi_diam,  diam_seg, -170.0,   2, 7.1, 7.1);
   pionbeam.addDetector("hades",   0.0,                  1.0,  false,      0.0,      0.0,      1, 6.0, 6.0);
-
-  //pionbeam.addDetector("diamond", 0.0,                  1.0, digi_diam,  diam_seg, -170.0,   2, 207.1, 207.1);
-  //pionbeam.addDetector("hades",   0.0,                  1.0,  false,      0.0,      0.0,      1, 206.0, 206.0);
 
   pionbeam.addDetector("pidec",  -1.0,                  1.0,  false,      0,        100,      1, 1.e9, 1.e9 /*no acceptacne cut*/);
 
