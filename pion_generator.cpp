@@ -29,24 +29,9 @@ using namespace std;
 int main( int argc, const char **argv )
 {
 
-  ////int nEvents=100000;
-  //int nEvents=100000;
-  //
-  //// Simulation setup
-  //double dth = 0.0; // 10.0;
-  //double dph = 0.0; // 50;
-  //double xyr = 0.5; // 0.5;
-  //double pbeam = 1.3;
-  //
-  //bool do_ms_pitrk = false;
-  //bool do_ms_diam = false;
-
-  //bool digi_pitrk = false;
-  //bool digi_diam = false;
-
-  if (argc!=7&&argc!=9) {
+  if (argc!=7&&argc!=10) {
     cout << "Need minimum either 5 or 7 arguments. " << argc-1 << " given" << endl;
-    cout << "./gen Nevt[10000] dphi[50mrad] dth[10mrad] xyr[0.5mm] p[GeV] dp[6\%] [Digitzie?{00,01,10/11} [MS{00,01,10/11}]" << endl;
+    cout << "./gen Nevt[10000] dphi[50mrad] dth[10mrad] xyr[0.5mm] p[GeV] dp[6\%] [Digitzie?{00,01,10/11} [MS{00,01,10/11}] [PIDEC{0,1}]" << endl;
     return -1;
   }
 
@@ -61,22 +46,19 @@ int main( int argc, const char **argv )
 
   TParameter<double> tpar_beam_mom("ref_beam_mom", pbeam);
 
-  const bool digi_pitrk = argc!=9 ? false : (atoi(argv[7])/10 == 1);
-  const bool digi_diam = argc!=9 ? false : (atoi(argv[7])%10 == 1);
-  const double diam_seg = 2.45; // 14.7mm/6
-
-  //const double diam_seg = 2.0; // 14.7mm/6
-  //if (argc == 8 ) {
-  //  diam_seg = atof(argv[7]); // Argument for academic study on what finer element size on start detector would bring
-  //}
+  const bool digi_pitrk = argc!=10 ? false : (atoi(argv[7])/10 == 1);
+  const bool digi_diam = argc!=10 ? false : (atoi(argv[7])%10 == 1);
+  const double diam_seg = 2.45;
 
   //const bool do_ms_diam = false;
-  const bool do_ms_pitrk1 = argc!=9?false:(atoi(argv[8])/10 == 1);
-  const bool do_ms_pitrk2 = argc!=9?false:(atoi(argv[8])%10 == 1);
+  const bool do_ms_pitrk1 = argc!=10?false:(atoi(argv[8])/10 == 1);
+  const bool do_ms_pitrk2 = argc!=10?false:(atoi(argv[8])%10 == 1);
   cout << "do_ms_pitrk1 = " << (do_ms_pitrk1?1:0) << "  do_ms_pitrk2 = " << (do_ms_pitrk2?1:0) << endl;
 
-  TString outfile=Form("output/ms%d%d_ds%d%d%s_xy%3.1fmm_dth%d_dph%d_dp%3.1f_p%4.2f.evt",
-		       do_ms_pitrk1?1:0, do_ms_pitrk2?1:0, digi_pitrk?1:0, digi_diam?1:0,
+  const bool do_pidec = argc!=10?false:(atoi(argv[9])==1);
+
+  TString outfile=Form("output/pidec%d_ms%d%d_ds%d%d%s_xy%3.1fmm_dth%d_dph%d_dp%3.1f_p%4.2f.evt",
+		       do_pidec?1:0, do_ms_pitrk1?1:0, do_ms_pitrk2?1:0, digi_pitrk?1:0, digi_diam?1:0,
 		       (argc==10?Form("_seg%3.1f",diam_seg):""), xyr, (int)dth, (int)dph, dp_beam, pbeam);
 
   cout << "Output file name: " << outfile << endl;
@@ -127,19 +109,6 @@ int main( int argc, const char **argv )
     1,1,1
   };
 
-
-//   h/ 6.,6.,6.,6.,7.,
-//    $  7.,7.,7.,7.,9.,
-//    $ 9.,6.,6.,6.,6.,
-//    $ 6.,5.,6.,6.,6.,  !  16 et 17  detecteur II
-//    $ 6.,9.,9.,6.,6.,
-//    $ 5.,6.,6.,6.,6.,
-//    $ 6.,0.70,0.6,5.,
-//    $-- filler ?
-//    $ 5.,5.,5.,5.,5.,
-//    $ 5.,5.,5.,5.,5.,
-//    $ 5.,5.,5.,5.,5.,5.  /
-
   Double_t xcut[] =  {   // [mm]
     60.,60.,60.,60.,70.,   //5
     70.,70.,70.,70.,90.,   //10
@@ -149,18 +118,6 @@ int main( int argc, const char **argv )
     50.,60.,60.,60.,60.,   //30
     60.,60.,60.
   };
-
-//    v/6.,6.,6.,6.,3.5,
-//    $ 3.5,3.5,3.5,3.5,3.5,
-//    $ 3.5,6.,6.,6.,6.,
-//    $ 6.,5.,6.,6.,6.,
-//    $ 6.,3.5,3.5,6.,6.,
-//    $ 5.,6.,6.,6.,6.,
-//    $ 6.,0.70,0.6,5.,5.,
-//    $-- filler ?
-//    $ 5.,5.,5.,5.,5.,
-//    $ 5.,5.,5.,5.,5.,
-//    $ 5.,5.,5.,5.,5.  /
 
   Double_t ycut[] =        // [mm]
     {
@@ -219,7 +176,7 @@ int main( int argc, const char **argv )
   pionbeam.addDetector("pidec",  -1.0,                  1.0,  false,      0,        100,      1, 1.e9, 1.e9 /*no acceptacne cut*/);
 
   pionbeam.set_detector_names("det1", "det2", "diamond", "hades");
-  pionbeam.set_pion_decay_plane_name("pidec");
+  pionbeam.set_pion_decay_plane_name("pidec", do_pidec);
 
   vector<HBeamElement>& elements  = pionbeam.getElements();
   vector<HBeamElement>& detectors = pionbeam.getDetectors();
@@ -261,8 +218,8 @@ int main( int argc, const char **argv )
   const unsigned int ndet = vhistory.size();
   vector<HBeamParticle>& vms_history = pionbeam.get_ms_history();
   const unsigned int nmspt = vms_history.size();
-  vector<HBeamParticle>& vpd_history = pionbeam.get_pd_history();
-  const unsigned int npdpt = vpd_history.size();
+  vector<HBeamParticle>& vpidec_history = pionbeam.get_pidec_history();
+  const unsigned int npidecpt = vpidec_history.size();
   vector<HBeamParticle>& vsolution = pionbeam.get_solution();
   const unsigned int nrec = vsolution.size();
 
@@ -271,7 +228,7 @@ int main( int argc, const char **argv )
   cout << "------------" << endl;
   for (unsigned int kk=0; kk<vms_history.size(); ++kk) cout << "vms_history["<< kk << "].fName= " << vms_history[kk].fName << endl;
   cout << "------------" << endl;
-  for (unsigned int kk=0; kk<vpd_history.size(); ++kk) cout << "vpd_history["<< kk << "].fName= " << vpd_history[kk].fName << endl;
+  for (unsigned int kk=0; kk<vpidec_history.size(); ++kk) cout << "vpidec_history["<< kk << "].fName= " << vpidec_history[kk].fName << endl;
   cout << "------------" << endl;
   for (unsigned int kk=0; kk<vsolution.size(); ++kk) cout << "vsolution["<< kk << "].fName= " << vsolution[kk].fName << endl;
 
@@ -302,14 +259,14 @@ int main( int argc, const char **argv )
   float _pms[nmspt]; tt->Branch("pms[nmspt]",&_pms,"pms[nmspt]/F");
 
   // msi == multiple scattering initial state
-  int _npdpt = npdpt;  tt->Branch("npdpt",&_npdpt,"npdpt/I");
+  int _npidecpt = npidecpt;  tt->Branch("npidecpt",&_npidecpt,"npidecpt/I");
   int _i_pi_dec=0;     tt->Branch("ipidec",&_i_pi_dec,"ipidec/I");
   float _d_pi_dec;     tt->Branch("dpidec",&_d_pi_dec,"dpidec/F");
-  float _xpd[npdpt];  tt->Branch("xpd[npdpt]",&_xpd,"xpd[npdpt]/F");
-  float _thpd[npdpt]; tt->Branch("thpd[npdpt]",&_thpd,"thpd[npdpt]/F");
-  float _ypd[npdpt];  tt->Branch("ypd[npdpt]",&_ypd,"ypd[npdpt]/F");
-  float _phpd[npdpt]; tt->Branch("phpd[npdpt]",&_phpd,"phpd[npdpt]/F");
-  float _ppd[npdpt]; tt->Branch("ppd[npdpt]",&_ppd,"ppd[npdpt]/F");
+  float _xpidec[npidecpt];  tt->Branch("xpidec[npidecpt]",&_xpidec,"xpidec[npidecpt]/F");
+  float _thpidec[npidecpt]; tt->Branch("thpidec[npidecpt]",&_thpidec,"thpidec[npidecpt]/F");
+  float _ypidec[npidecpt];  tt->Branch("ypidec[npidecpt]",&_ypidec,"ypidec[npidecpt]/F");
+  float _phpidec[npidecpt]; tt->Branch("phpidec[npidecpt]",&_phpidec,"phpidec[npidecpt]/F");
+  float _ppidec[npidecpt]; tt->Branch("ppidec[npidecpt]",&_ppidec,"ppidec[npidecpt]/F");
 
   TH2F* h_xy[ndet], *h_xyAcc[ndet];
   TH2F* h_xth[ndet], *h_xthAcc[ndet];
@@ -427,15 +384,15 @@ int main( int argc, const char **argv )
 
 	    vector<HBeamParticle>& vhistory = pionbeam.newParticle();
 	    vector<HBeamParticle>& vms_history = pionbeam.get_ms_history();
-	    vector<HBeamParticle>& vpd_history = pionbeam.get_pd_history();
+	    vector<HBeamParticle>& vpidec_history = pionbeam.get_pidec_history();
 	    vector<HBeamParticle>& vsolution = pionbeam.get_solution();
 
 	    // make sure that the vectors have the same entries from event to event
 	    // They should also have the entries in the same order, but that's more cotly to verify for every event
-	    //cout << vhistory.size() << ", " <<  vms_history.size() << "," <<  vpd_history.size() << ", " << vsolution.size() << endl;
+	    //cout << vhistory.size() << ", " <<  vms_history.size() << "," <<  vpidec_history.size() << ", " << vsolution.size() << endl;
 	    assert(ndet==vhistory.size());
 	    assert(nmspt==vms_history.size());
-	    assert(npdpt==vpd_history.size());
+	    assert(npidecpt==vpidec_history.size());
 	    assert(nrec==vsolution.size());
 
 	    vPion.clear();
@@ -486,18 +443,18 @@ int main( int argc, const char **argv )
 	      _phms[j] = ms_phi_mrad;
 	    }
 
-	    for (unsigned int j=0; j<vpd_history.size() && j<(unsigned int)_npdpt; ++j) {
-	      TLorentzVector pd_muon;
-	      pd_muon.SetXYZM(vpd_history[j].fP.X(),vpd_history[j].fP.Y(),vpd_history[j].fP.Z(), 139.56995*0.001);
-	      const double pd_the_mrad = TMath::ATan2(pd_muon.Px(),pd_muon.Pz())*1000;
-	      const double pd_phi_mrad = TMath::ATan2(pd_muon.Py(),pd_muon.Pz())*1000;
-	      //_dppd[j] = (pd_pion.P() - pbeam)*100./pbeam;
-	      _d_pi_dec = vpd_history[j].fPos.Z();
-	      _ppd[j] = pd_muon.P();
-	      _xpd[j] = vpd_history[j].fPos.X();
-	      _thpd[j] = pd_the_mrad;
-	      _ypd[j] = vpd_history[j].fPos.Y();
-	      _phpd[j] = pd_phi_mrad;
+	    for (unsigned int j=0; j<vpidec_history.size() && j<(unsigned int)_npidecpt; ++j) {
+	      TLorentzVector pidec_muon;
+	      pidec_muon.SetXYZM(vpidec_history[j].fP.X(),vpidec_history[j].fP.Y(),vpidec_history[j].fP.Z(), 139.56995*0.001);
+	      const double pidec_the_mrad = TMath::ATan2(pidec_muon.Px(),pidec_muon.Pz())*1000;
+	      const double pidec_phi_mrad = TMath::ATan2(pidec_muon.Py(),pidec_muon.Pz())*1000;
+	      //_dppidec[j] = (pidec_pion.P() - pbeam)*100./pbeam;
+	      _d_pi_dec = vpidec_history[j].fPos.Z();
+	      _ppidec[j] = pidec_muon.P();
+	      _xpidec[j] = vpidec_history[j].fPos.X();
+	      _thpidec[j] = pidec_the_mrad;
+	      _ypidec[j] = vpidec_history[j].fPos.Y();
+	      _phpidec[j] = pidec_phi_mrad;
 	    }
 
 	    // retreive the element index where pion decay took place

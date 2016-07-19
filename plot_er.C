@@ -59,10 +59,10 @@ void plot_er(TString fin="output/ms11_ds11_xy0.5mm_dth10_dph50_dp-6.0_p1.70.root
   //vms_history[5].fName= det2_POST_MS_BEAM_PROF
   //vms_history[6].fName= det2_POST_MS_RETRACE
   //------------
-  //vpd_history[0].fName= pidec_PRE_PD
-  //vpd_history[1].fName= pidec_POST_PD
-  //vpd_history[2].fName= pidec_POST_PD_BEAM_PROF
-  //vpd_history[3].fName= pidec_POST_PD_RETRACE
+  //vpidec_history[0].fName= pidec_PRE_PIDEC
+  //vpidec_history[1].fName= pidec_POST_PIDEC
+  //vpidec_history[2].fName= pidec_POST_PIDEC_BEAM_PROF
+  //vpidec_history[3].fName= pidec_POST_PIDEC_RETRACE
   //------------
   //vsolution[0].fName= TDR_SOLUTION_BEAM_INITIAL
   //vsolution[1].fName= TDR_SOLUTION_DIAM
@@ -86,7 +86,7 @@ void plot_er(TString fin="output/ms11_ds11_xy0.5mm_dth10_dph50_dp-6.0_p1.70.root
   t->SetAlias("ppi","p[0]");
   t->SetAlias("dppi","dp[0]");
 
-  //t->SetAlias("ppi","ppd[0]");
+  //t->SetAlias("ppi","ppidec[0]");
   //t->SetAlias("dppi",Form("100*(ppi-%3.5f)/%3.5f",p_ref,p_ref));
 
   t->SetAlias("x0", "x[0]");
@@ -101,24 +101,6 @@ void plot_er(TString fin="output/ms11_ds11_xy0.5mm_dth10_dph50_dp-6.0_p1.70.root
   t->SetAlias("th0er_d1ms", "th[0]-thms[2]");
   t->SetAlias("y0er_d1ms", "y[0]-yms[2]");
   t->SetAlias("ph0er_d1ms", "ph[0]-phms[2]");
-
-  //t->SetAlias("pmu", "ppd[1]");
-  //t->SetAlias("dpmu",Form("100*(pmu-%3.5f)/%3.5f",p_ref,p_ref));
-  //
-  //t->SetAlias("pmub","ppd[2]");
-  //t->SetAlias("pmur","ppd[3]");
-  //
-  //t->SetAlias("thmu","thpd[1]");
-  //t->SetAlias("thmub","thpd[2]");
-  //t->SetAlias("thmur","thpd[3]");
-  //t->SetAlias("thmur_er","thmur-thmu");
-  //
-  //t->SetAlias("phmu","phpd[1]");
-  //t->SetAlias("phmub","phpd[2]");
-  //t->SetAlias("phmur","phpd[3]");
-  //t->SetAlias("phmur_er","phmur-phmu");
-  //
-  //t->SetAlias("theta_mu_pi", "TMath::Hypot(thpd[1]-thpd[0],phpd[1]-phpd[0])");
 
   t->SetAlias("del0",Form("(abs((ppi-%3.5f)/%3.5f)-1.0)<0.001",p_ref,p_ref));
   for (int idel=-6; idel<7; ++idel) {

@@ -361,7 +361,7 @@ public:
 HBeamElement pi_det2;
 double target_fcn_det2[5];
 double final_fcn_det2[5];
-double sigma_fcn_det2[5] = {0.5, 50, 0.5, 10, 6};
+double sigma_fcn_det2[5] = {0.05, 1, 0.1, 5, 1};
 
 void fcn_det2(Int_t&, Double_t*, Double_t &f, Double_t *par, Int_t) {
 
@@ -513,7 +513,7 @@ private:
     vector <HBeamElement>  felements;    // vector of all beam elements
     vector <HBeamParticle>  fhistory;    // vector of beam particle at all detectors
     vector <HBeamParticle>  fms_history;  // vector of beam particle state after each MS generation step
-    vector <HBeamParticle>  fpd_history;  // vector of beam particle state after each pion decay step
+    vector <HBeamParticle>  fpidec_history;  // vector of beam particle state after each pion decay step
     vector <HBeamParticle>  fsolution;   // vector to hold solution states
     Int_t                fnum_target;    // index of elemnt target
     Bool_t setTargetElement(UInt_t n);
@@ -535,7 +535,9 @@ private:
 
     TF1 *gen_func;
 
- public:
+    bool do_pidec;
+
+public:
 
     HBeam();
     ~HBeam();
@@ -569,11 +571,11 @@ private:
     void  print_elements();
     void  print_detectors();
 
-    HBeamElement& find_reference_element(const int &distance);
+    HBeamElement& find_reference_element(const int &);
     int get_det_idx(TString);
 
     HBeamElement& get_pion_decay_plane();
-    void set_pion_decay_plane_name(TString pidecn);
+  void set_pion_decay_plane_name(TString, bool);
     void set_detector_names(TString,TString,TString,TString);
     void                     update_reco_params();
     double calc_decay_distance(HBeamParticle &part);
@@ -595,7 +597,7 @@ private:
     int                     solution_minuit(vector<Double_t> &state);
 
     vector<HBeamParticle>&   get_ms_history() { return fms_history; }
-    vector<HBeamParticle>&   get_pd_history() { return fpd_history; }
+    vector<HBeamParticle>&   get_pidec_history() { return fpidec_history; }
     vector<HBeamParticle>&   get_solution() { return fsolution; }
 
 };
@@ -634,13 +636,14 @@ HBeam::HBeam()
   gen_func->SetParameter(0,1);
   gen_func->SetParameter(1,100);
 
+  do_pidec = false;
 }
 
 HBeam::~HBeam() {
     if(fProfile) delete fProfile;
 }
 
-Int_t HBeam::addDetector(TString name, Double_t thikness, Double_t rad_len, bool digi, Double_t pitch, Double_t distance, Int_t cutType, Double_t xcut, Double_t ycut)
+Int_t HBeam::addDetector(TString name, Double_t thickness, Double_t rad_len, bool digi, Double_t pitch, Double_t distance, Int_t cutType, Double_t xcut, Double_t ycut)
 {
 
   //cout << endl;
@@ -654,7 +657,7 @@ Int_t HBeam::addDetector(TString name, Double_t thikness, Double_t rad_len, bool
   det.fyCut    = TMath::Abs(ycut);
   det.fCutType = cutType;
 
-  det.fXoX0 = thikness / rad_len;
+  det.fXoX0 = thickness / rad_len;
 
   det.fPitch = pitch;
   det.fDigi = digi;
@@ -697,7 +700,8 @@ HBeamElement& HBeam::get_pion_decay_plane() {
   return fdetectors[ipidecplane];
 }
 
-void HBeam::set_pion_decay_plane_name(TString pidecn) {
+void HBeam::set_pion_decay_plane_name(TString pidecn, bool _do_pidec) {
+  do_pidec = _do_pidec;
   pidec_name = pidecn;
   // just to assert that the pion decay plane has been given
   get_pion_decay_plane();
@@ -930,7 +934,7 @@ Bool_t HBeam::transport_with_ms(HBeamParticle& part){
   part.fName = "ORIG_BEAM_PROFILE";
   transport(part, 0);
   fms_history.push_back(part);
-  fpd_history.push_back(part);
+  fpidec_history.push_back(part);
 
 // convert to transport units before applying transport matrices
   for (int i=0; i<5; ++i) init_state[i] *= ffromPluto[i];
@@ -1150,7 +1154,7 @@ void HBeam::back_propagate(const double &dp, const HBeamElement &det, double *st
   bool print_stuff = false;
 
   //if (prop.Determinant()<0.1) {
-  if (false) {
+  if (true) {
     back_propagate_minuit(det, state, back_prop);
     return;
   }
@@ -1237,22 +1241,8 @@ Bool_t HBeam::transport_with_ms_and_pion_decay(HBeamParticle& part){
 
     HBeamElement &det = fdetectors[idet];
 
-    // What needs to be done to account for pion decay
-    // Check if the pion decay happens before arriving at this detector.
-    // If so, there are two cases
-    // 1) Element at position I is the entrance face of detector
-    //    - Perform the pion decay and adjust the arrival position/angles of the track
-    //    - Change the particle Id of the track to muon
-    // 2) Element at position I is exit face of detector
-    //    - Meaning decay took place in magnetic field. We simplify and treat it as if
-    //      the decay took place at the exit face of the detector and add the angle perturbations
-    //      after calculating the exit position
-
     Double_t state[5] = {0.0};
     propagate_to_det(det, &init_state[0], &state[0]);
-    //cout << "wtf state: " << state[4] << ", " << state[1] << ", " << state[3] << ", " << endl;
-    //cout << " dist= " << det.fDistance << endl;
-    //det.printTij();
 
     // This state has to be stored as the hit position for this detector (in pluto units!).
     // It is the position before MS happens. In createDetectorHits function, the setting of
@@ -1262,9 +1252,6 @@ Bool_t HBeam::transport_with_ms_and_pion_decay(HBeamParticle& part){
 
     // store this as the state of particle at detector before MS (This is also the position
     // if MS is not requested for a particular detector
-    //cout << " checking det i="<< idet <<": " << det.fName << " do_ms?="
-    //     << det.apply_ms() << " decay_pion?= " << det.decay_pion() << endl;
-
     if ( ! det.apply_ms() && ! det.decay_pion()) {
       // we store only the actual detector hits in fhistory
       if (!det.decay_pion())
@@ -1274,7 +1261,7 @@ Bool_t HBeam::transport_with_ms_and_pion_decay(HBeamParticle& part){
       if ( det.apply_ms() )
 	store_history(part, det, &state[0], "_PRE_MS", fms_history);
       else
-	store_history(part, det, &state[0], "_PRE_PD", fpd_history);
+	store_history(part, det, &state[0], "_PRE_PIDEC", fpidec_history);
     }
 
     //cout << "apply_ms_or_decay: " ;
@@ -1294,13 +1281,13 @@ Bool_t HBeam::transport_with_ms_and_pion_decay(HBeamParticle& part){
       store_history(part, det, &state[0], tag, fhistory);
     } else if (det.decay_pion()) {
       //cout << " decay! name= " << det.fName << " dist= " << det.fDistance << endl;
-      tag = "_POST_PD";
+      tag = "_POST_PIDEC";
 
-      //print_state("pd_state_in: ", state);
+      //print_state("pidec_state_in: ", state);
       do_pion_decay(part, state[4], state[1], state[3]);
-      //print_state("pd_state_out: ", state);
+      //print_state("pidec_state_out: ", state);
 
-      store_history(part, det, &state[0], tag, fpd_history);
+      store_history(part, det, &state[0], tag, fpidec_history);
     } else {
       cout << "Warning! this case can cause trouble! " << endl;
     }
@@ -1317,7 +1304,7 @@ Bool_t HBeam::transport_with_ms_and_pion_decay(HBeamParticle& part){
       if (det.fDistance < 0) {
 	back_propagate(part, det, &state[0], &init_state[0]);
       }
-      store_history(part, det, &init_state[0], tag+"_BEAM_PROF", fpd_history);
+      store_history(part, det, &init_state[0], tag+"_BEAM_PROF", fpidec_history);
     }
 
     // redo transport for all elements downstream from this detector
@@ -1336,7 +1323,7 @@ Bool_t HBeam::transport_with_ms_and_pion_decay(HBeamParticle& part){
     if (det.apply_ms()) {
       store_history(part, det, retrace_state, tag+"_RETRACE", fms_history);
     } else {
-      store_history(part, det, retrace_state, tag+"_RETRACE", fpd_history);
+      store_history(part, det, retrace_state, tag+"_RETRACE", fpidec_history);
     }
 
   }
@@ -1548,27 +1535,6 @@ void HBeam::transport_to(const HBeamElement &det, double *state_in, double *stat
 
 }
 
-//void HBeam::transport_to(const HBeamElement &det, const vector<Double_t> &state_in /* Pluto Units Required*/, vector<Double_t> &state_out /* Answer will be in pluto units too*/) {
-//
-//  for (int i=0; i<5; ++i) state_out[i] = 0.0; // for safety
-//  vector<Double_t> _state_in(5);
-//  for (int i=0; i<5; ++i) _state_in[i] = state_in[i] * ffromPluto[i];
-//
-//  for(Int_t i = 0; i < 5; i ++){ // state vars
-//    // first order Term
-//    for(Int_t j = 0; j < 5; j ++){ //
-//      state_out[i] += det.Tij[i][j] * _state_in[j];
-//    }
-//    // second order Term
-//    for(Int_t j = 0; j < 5; j ++){ //
-//      for(Int_t k = j; k < 5; k ++){ //
-//	state_out[i] += det.Tijk[i][j][k] * _state_in[j] * _state_in[k];
-//      }
-//    }
-//  }
-//  for (int i=0; i<5; ++i) state_out[i] *= ftoPluto[i];
-//}
-
 int HBeam::solution_tdr(Double_t *x, Double_t *y, vector<Double_t> &state) {
 
   // transport units
@@ -1634,10 +1600,8 @@ int HBeam::solution_minuit(vector<Double_t> &state /*Everyting in Transport unit
 
   //gMinuit->FixParameter(1);
   //gMinuit->FixParameter(3);
-
   //gMinuit->FixParameter(0);
   //gMinuit->FixParameter(2);
-
   //gMinuit->FixParameter(4);
 
   // Now ready for minimization step
@@ -1669,10 +1633,6 @@ int HBeam::solution_minuit(vector<Double_t> &state /*Everyting in Transport unit
 
   Double_t error = 0.0;
   for (int i=0; i<5; ++i) gMinuit->GetParameter(i, state[i], error);
-
-  //for (int i=0; i<4; ++i) {
-  //  if (init[i] != state[i]) {cout << "WTF init[" << i << "]("  << init[i] << ") != " << " state[" << i << "](" << state[i] << ")" << endl;  }
-  //}
 
   if (verb) {
     if (ierflg!=0) {
@@ -1918,7 +1878,7 @@ vector <HBeamParticle>& HBeam::newParticle()
   HBeamParticle part(fBeam);
   fhistory.clear();
   fms_history.clear();
-  fpd_history.clear();
+  fpidec_history.clear();
   fsolution.clear();
 
   // beam profile + smearing
@@ -1929,27 +1889,24 @@ vector <HBeamParticle>& HBeam::newParticle()
   //print_state("init_beam: " , init_state);
 
   Bool_t accepted = false;
-  int ms_pd = 2;
 
-  if (ms_pd == 0) {
-    // Plain transport with no MS, no pion decay
-    part.fName = "beam";
-    fhistory.push_back(part);
-    transport(part);          // transport particle through beamline
-    accepted = createDetectorHits(part); // fill detectors
-  }
+  if (!do_pidec) {
 
-  else if (ms_pd == 1) {
     // Transport with MS only
     // MS effect added for each detector registered with non zero thinkness.
-    // Creates and stores detector hits itself, no need to call createDetectorHits
-    //accepted = transport_with_ms(part);
-    // if we don't add a pion decay plane, this function doesn't do any pion decay
+    // - If all detectors are registered with zero thickness this function would
+    //   still work. So for no MS, just register all detectors with 0 thickness
+    // - Creates and stores detector hits itself, no need to call createDetectorHits
+    //    accepted = transport_with_ms(part);
+    // - if we don't add a pion decay plane, this function doesn't do any pion decay
     accepted = transport_with_ms_and_pion_decay(part);
-  }
 
-  else {
+  } else {
+
     // Transport with MS & pion decay
+    // If pion decay is explicitly requested, calculate the decay position for the
+    // pion and move the "pion decay plane" to that position. Sort the vector of detectors
+    // because the transport_with_ms_and_pion_decay function assumes that
     double distance = 0;
     int pair_idx = -1;
     if (calc_decay_distance(part, distance, pair_idx)) {
