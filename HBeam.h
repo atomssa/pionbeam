@@ -362,9 +362,7 @@ HBeamElement pi_det2;
 double target_fcn_det2[5];
 double final_fcn_det2[5];
 double sigma_fcn_det2[5] = {0.05, 1, 0.1, 5, 1};
-
 void fcn_det2(Int_t&, Double_t*, Double_t &f, Double_t *par, Int_t) {
-
   double beam[5] = {0.};
   for (int ii=0; ii < 4; ++ii) { beam[ii] = par[ii]; }
   beam[4] = target_fcn_det2[4];
@@ -380,24 +378,11 @@ void fcn_det2(Int_t&, Double_t*, Double_t &f, Double_t *par, Int_t) {
       }
     }
   }
-
-  //pi_det2.printTij();
-  //cout <<  "par: {";
-  //for (int ii=0; ii < 5; ++ii) { cout << par[ii] << (ii<4?", ":"");  }
-  //cout << "}" << endl;
-  //cout <<  "final: {";
-  //for (int ii=0; ii < 5; ++ii) { cout << final_fcn_det2[ii] << (ii<4?", ":"");  }
-  //cout << "}" << endl;
-  //cout  << "target: {";
-  //for (int ii=0; ii < 5; ++ii) { cout << target_fcn_det2[ii] << (ii<4?", ":"");  }
-  //cout << "}" << endl;
-
   double chisq = 0;
   for (int ii=0; ii < 4; ++ii) {
     double delta = (final_fcn_det2[ii]-target_fcn_det2[ii])/sigma_fcn_det2[ii];
     chisq += delta*delta;
   }
-  //cout << "chi2= " << chisq << endl;
   f = chisq;
 }
 
@@ -936,7 +921,7 @@ Bool_t HBeam::transport_with_ms(HBeamParticle& part){
   fms_history.push_back(part);
   fpidec_history.push_back(part);
 
-// convert to transport units before applying transport matrices
+  // convert to transport units before applying transport matrices
   for (int i=0; i<5; ++i) init_state[i] *= ffromPluto[i];
 
   // Propagate to each detector where MS can occur (fXoX0!=0), MS smear and propagate back to the origin
@@ -1061,17 +1046,14 @@ void HBeam::propagate_to_det(HBeamElement det, double *start, double *final) {
 }
 
 void HBeam::store_history(HBeamParticle &part, HBeamElement &det, double *state, const char* tag, vector<HBeamParticle> &hist) {
-  //cout << tag << " -> zdet = " << det.fDistance << endl;
   part.set_state(state, fBeam.fBeamMom, det.fDistance, Unit::TRANSPORT);
   part.fName = det.fName + tag;
   part.fAccepted = det.fAccepted;
-  //cout << " store_hist tag:" << tag << " dp= " << part.dp() << endl;
   hist.push_back(part);
 }
 
 void HBeam::apply_ms_kick(TVector3 &p3, HBeamElement &det, double &dthe, double &dphi) {
   TLorentzVector tmp(p3, TMath::Hypot(p3.Mag(), pion_mass));
-  //tmp.SetXYZM(p3.X(),p3.Y(),p3.Z(), pion_mass);
   if (det.fXoX0 < 0) {
     cout << " Warning! Ms requested for det " << det.fName << " with fXoX= " << det.fXoX0 << " ... Not doing!" << endl;
     return;
@@ -1084,7 +1066,6 @@ void HBeam::apply_ms_kick(TVector3 &p3, HBeamElement &det, double &dthe, double 
 void HBeam::do_pion_decay(HBeamParticle &part, double &mom, double &the, double &phi) {
 
   part.fPid = muon_pid;
-  // TODO: set the angles for the muon
 
   double p_pi = part.fP.Mag();
   double theta_cm_mu = TMath::ACos(gRandom->Uniform(2.0)-1.0);
@@ -1103,10 +1084,6 @@ void HBeam::do_pion_decay(HBeamParticle &part, double &mom, double &the, double 
   mom = 100.*(_p_lab_mu - fBeam.fBeamMom)/fBeam.fBeamMom;
   float dthe = _theta_lab_mu*TMath::Cos(1000.*phi + _phi_cm_mu)*1000.;
   float dphi = _theta_lab_mu*TMath::Sin(1000.*phi + _phi_cm_mu)*1000.;
-  //cout << " _theta_lab_mu[rad]= " << _theta_lab_mu;
-  //cout << " the[mrad]= " << the << " dthe[mrad]= " << dthe;
-  //cout << " phi[mrad]= " << phi << " dphi[mrad]= " << dphi;
-  //cout << " mom[%]= " << mom << endl;
 
   the += dthe;
   phi += dphi;
@@ -1149,30 +1126,16 @@ void HBeam::back_propagate(const double &dp, const HBeamElement &det, double *st
     }
   }
 
-  //bool print_stuff = 3.44 < dp && dp < 3.48;
-  //bool print_stuff = dp!=0;
-  bool print_stuff = false;
-
-  //if (prop.Determinant()<0.1) {
+  // For now do all back propagation using MINUIT. If speed is more important than backtracking
+  // accuracy, use the matrix method (potentailly on condition that the determinant is too close
+  // to zero) as such:
+  //     if (prop.Determinant()<0.1) {
   if (true) {
     back_propagate_minuit(det, state, back_prop);
     return;
   }
 
-  if (print_stuff) {
-    cout << "dpppp= " << dp << endl;
-    cout << "Dp adjusted propagation matrix: ";
-    //prop.Print();
-    cout << " Determinant= " << prop.Determinant() << endl;
-  }
-
   prop.Invert();
-
-  if (print_stuff) {
-    cout << "Dp adjusted back propagation matrix: ";
-    //prop.Print();
-    cout << " Determinant= " << prop.Determinant() << endl;
-  }
 
   double intermediate_state[5] =  {0.0};
   // Prepare state vector for multiplication by reverse propation matrix
@@ -1182,29 +1145,11 @@ void HBeam::back_propagate(const double &dp, const HBeamElement &det, double *st
   intermediate_state[3] = state[3] - (det.Tij[3][4]/*T46*/ * dp + det.Tijk[3][4][4]/*T466*/ * dp * dp );
   intermediate_state[4] = state[4];
 
-  if (print_stuff) print_state("input state: ", state);
-  if (print_stuff) print_state("intermediate state: ", intermediate_state);
-
   TVectorD tvd_state(4, intermediate_state);
   tvd_state *= prop;
 
   for (int i=0; i<4; ++i) back_prop[i] = tvd_state[i];
   back_prop[4] = state[4];
-
-  //print_state("init_state: ", state);
-  //
-  //double retrace_matrix[5] = {0.0};
-  //propagate_to_det(det, back_prop, retrace_matrix);
-  //print_state("back_prop_matrix: ", back_prop);
-  //print_state("retrace_matrix: ", retrace_matrix);
-  //
-  //double retrace_minuit[5] = {0.0};
-  //back_propagate_minuit(det, state, back_prop);
-  //propagate_to_det(det, back_prop, retrace_minuit);
-  //print_state("back_prop_minuit: ", back_prop);
-  //print_state("retrace_minuit: ", retrace_minuit);
-  //
-  //cout << "-----" << endl;
 
 }
 
@@ -1391,17 +1336,12 @@ Bool_t HBeam::createDetectorHits(HBeamParticle& part)
 }
 
 inline Double_t HBeam::digitize_pos(const Double_t &pos, const Double_t &pitch) {
-  //const double pos_digi = ( (double) ( floor( pos/pitch ) ) * pitch ) + pitch/2 + ((gRandom->Rndm()-0.5)*pitch);
-  //const double pos_digi = ( (double) ( floor( pos/pitch + 0.5) ) * pitch ) + pitch/2;
-  //cout << "pitch= " << pitch << "  pos_in = " << pos << " pos_digi= " << pos_digi << " diff= " << pos_digi-pos << endl;
-  double pos_digi = pitch* ( int(pos/fabs(pos))/2.0 + int(pos/pitch) ) ; // + ((gRandom->Rndm()-0.5)*pitch);
+  double pos_digi = pitch* ( int(pos/fabs(pos))/2.0 + int(pos/pitch) ) ;
   return pos_digi;
 }
 
 double pars[4];
-
 double third_order_pol(Double_t x) {
-  //cout << "pol= " << pars[0] << "x + " << pars[1] << "x^2 + " << pars[3] << "x^3" << endl;
   return pars[0] + pars[1]*x + pars[2]*x*x + pars[3]*x*x*x;
 }
 
@@ -1432,17 +1372,10 @@ Double_t HBeam::solve_delta(const Double_t &xd1, const Double_t &xd2, const Doub
     cin >> tmp;
   }
 
-  //cout << "==================================================================" << endl;
-  //cout << "Input polynomial = " << pars[0] << "x + " << pars[1] << "x^2 + " << pars[3] << "x^3" << endl;
-
   // Numerical root finding method from: http://root.cern.ch/drupal/content/root-finder-algorithms
-
   Double_t del_max = 8.0;
   ROOT::Math::Functor1D f1D(&third_order_pol);
   ROOT::Math::RootFinder rf(ROOT::Math::RootFinder::kBRENT);
-  //ROOT::Math::RootFinder rf(ROOT::Math::RootFinder::kGSL_BISECTION);
-  //ROOT::Math::RootFinder rf(ROOT::Math::RootFinder::kGSL_FALSE_POS);
-  //ROOT::Math::RootFinder rf(ROOT::Math::RootFinder::kGSL_BRENT);
 
   bool status_solved = false;
   while (!status_solved) {
@@ -1453,7 +1386,6 @@ Double_t HBeam::solve_delta(const Double_t &xd1, const Double_t &xd2, const Doub
     status_solved = (rf.Status() == 0);
   }
 
-  //cout << "Roots of 3rd order equation: " << rf.Root() << endl;
   if (!status_solved) {
     cout << "Still trouble solving up to del_max= " << del_max << endl;
   }
@@ -1462,40 +1394,13 @@ Double_t HBeam::solve_delta(const Double_t &xd1, const Double_t &xd2, const Doub
 
   return rf.Root();
 
-  //const double pars[4] = {
-  //  _xd2*par.T12d1 - _xd1*par.T12d2,
-  //  (_xd2*par.T126d1 - par.T12d1*_T16d2) - (_xd1*par.T126d2 - par.T12d2*_T16d1),
-  //  (_T16d1*par.T126d2 + par.T12d2*par.T166d1) - (_T16d2*par.T126d1 + par.T12d1*par.T166d2),
-  //  (par.T126d2*par.T166d1 - par.T126d1*par.T166d2)
-  //};
-
-  //// Numerical root finding method from: http://root.cern.ch/drupal/content/root-finder-algorithms
-  //// SetParameter function of TF1 is incredibly slow. Use TFormula to enter the parameters directly
-  //const Double_t del_max = 10.0;
-  //TF1 f("ThirdOrdPol",Form("%f+%f*x+%f*x*x+%f*x*x*x",pars[0],pars[1],pars[2],pars[3]),-del_max,del_max);
-  //ROOT::Math::WrappedTF1 wf1(f);
-  //ROOT::Math::BrentRootFinder brf;
-  //brf.SetFunction( wf1, -del_max, del_max );
-  //brf.Solve();
-  ////cout << "Roots of 3rd order equation: " << brf.Root() << endl;
-  //return brf.Root();
-
 }
 
 double HBeam::solve_theta(const Double_t &xd1, const Double_t&/*xd2*/, const Double_t &phi, const Double_t &delta) {
-
   // if phi is non-zero (after first iteration), these transformations will take that into account
   const double _xd1 = xd1 - par.T14d1*phi;
   const double _T16d1 = par.T16d1 - par.T146d1*phi;
   const double theta_d1 = (_xd1 - _T16d1 * delta - par.T166d1 * delta * delta) / ( par.T12d1 + par.T126d1 * delta);
-
-  //double _xd2 = xd2 - par.T14d2*phi;
-  //double _T16d2 = par.T16d2 - par.T146d2*phi;
-  //double theta_d2 = (_xd2 - _T16d2 * delta - par.T166d2 * delta * delta) / ( par.T12d2 + par.T126d2 * delta);
-
-  //cout << "element[0] th= " << felements[0].fout[1]*ffromPluto[1] ;
-  //cout << " Theta_d1= " << theta_d1 << " Theta_d2= " << theta_d2 << endl;
-  //assert( fabs( ( theta_d1 - theta_d2)/theta_d2 ) < 1 );
 
   return theta_d1;
 }
@@ -1510,7 +1415,6 @@ void HBeam::solve_phi_and_y(const Double_t &yd1, const Double_t &yd2, const Doub
   const double g2 = yd2 - par.T32d2*th - par.T36d2*del - par.T366d2*del*del;
   y = (g1*b2 - g2*b1)/(b2*a1 - b1*a2);
   ph = (g1 - a1*y) / b1;
-
 }
 
 void HBeam::transport_to(const HBeamElement &det, double *state_in, double *state_out, Unit unit) {
@@ -1547,8 +1451,6 @@ int HBeam::solution_tdr(Double_t *x, Double_t *y, vector<Double_t> &state) {
   int niter = 0;
   bool converged = false;
   int status = 0;
-
-  //cout <<  "MES: x[0]= " << x[0] << " x[1]= " << x[1] <<  " y[0]= " << y[0] << " y[1]= " << y[1] << endl;
 
   while (niter<max_niter && !converged ) {
     for (int i=0; i<5; ++i) prev[i] = state[i];
@@ -1693,13 +1595,8 @@ void HBeam::calc_error(double *state_d1, const HBeamElement &det1, const HBeamEl
 
 void HBeam::solve_state() {
 
-  //cout << "========================================== " << endl;
   // fetch hit position in each detector whose hit position is used in the reconstrction
-  //cout << " -------------------------------------- " << endl;
-  //for (unsigned int i=0; i<det_idx.size(); ++i) {
   for (unsigned int i=0; i<3; ++i) {
-    //cout << "det " << i << "= " << fdetectors[det_idx[i]].fName << endl;
-
     bool digi = fdetectors[det_idx[i]].fDigi;
     Double_t pitch = fdetectors[det_idx[i]].fPitch*ffromPluto[0];  // cm
 
@@ -1872,9 +1769,6 @@ void HBeam::print_dets(TString tag) {
 vector <HBeamParticle>& HBeam::newParticle()
 {
 
-  //cout << endl;
-  //cout << "-------------------------" << endl;
-  //cout << "------ new event --------" << endl;
   HBeamParticle part(fBeam);
   fhistory.clear();
   fms_history.clear();
@@ -1918,10 +1812,6 @@ vector <HBeamParticle>& HBeam::newParticle()
       get_pion_decay_plane().set_distance(find_reference_element(distance), distance);
     }
 
-    // works !!
-    //double distance = calc_decay_distance_wrong(part);
-    //double distance = calc_decay_distance(part);
-    //get_pion_decay_plane().set_distance(find_reference_element(distance), distance);
     std::sort(fdetectors.begin(),fdetectors.end(),sort_by_dist_from_prod);
 
     // Transport with MS + pion decay
