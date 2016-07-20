@@ -57,9 +57,9 @@ int main( int argc, const char **argv )
 
   const bool do_pidec = argc!=10?false:(atoi(argv[9])==1);
 
-  TString outfile=Form("output/pidec%d_ms%d%d_ds%d%d%s_xy%3.1fmm_dth%d_dph%d_dp%3.1f_p%4.2f.evt",
-		       do_pidec?1:0, do_ms_pitrk1?1:0, do_ms_pitrk2?1:0, digi_pitrk?1:0, digi_diam?1:0,
-		       (argc==10?Form("_seg%3.1f",diam_seg):""), xyr, (int)dth, (int)dph, dp_beam, pbeam);
+  TString outfile=Form("output/pidec%d_ms%d%d%d_ds%d%d%s_xy%3.1fmm_dth%d_dph%d_dp%3.1f_p%4.2f.evt",
+		       do_pidec?1:0, do_ms_pitrk1?1:0, do_ms_pitrk2?1:0, do_ms_diam?1:0, digi_pitrk?1:0, digi_diam?1:0,
+		       (argc==11?Form("_seg%3.1f",diam_seg):""), xyr, (int)dth, (int)dph, dp_beam, pbeam);
 
   cout << "Output file name: " << outfile << endl;
 
@@ -135,44 +135,20 @@ int main( int argc, const char **argv )
   // http://web-docs.gsi.de/~halo/docs/hydra/classDocumentation/dev/src/HPhysicsConstants.cxx.html#f0lQqE
 
   pionbeam.setBeam           (9, pbeam, 60, 60, 0.0, 0.0); // id, totl mom [GeV], beamtube x and y size, xoff,yoff
-
-  //pionbeam.setBeamProfile    (0.5,0.0);                // sigma [mm], flatradius [mm]
-  //pionbeam.setBeamProfile    (0.0,0.0);                // sigma [mm], flatradius [mm]
   pionbeam.setBeamProfile    (xyr,0.0);                // sigma [mm], flatradius [mm]
-
-  //pionbeam.setBeamResolution (0.01,0.05,0.06);          // dpx [rad],dpy [rad] ,dpz [relative]  [+-]
-  //pionbeam.setBeamResolution (0.01,0.05,0.0);          // dpx [rad],dpy [rad] ,dpz [relative]  [+-]
-  //pionbeam.setBeamResolution (0.0,0.0,0.0);          // dpx [rad],dpy [rad] ,dpz [relative]  [+-]
-  //pionbeam.setBeamResolution (dth/1000.,dph/1000.,0.0);          // dpx [rad],dpy [rad] ,dpz [relative]  [+-]
-  //pionbeam.setBeamResolution (dth/1000.,dph/1000.,0.06);          // dpx [rad],dpy [rad] ,dpz [relative]  [+-]
   pionbeam.setBeamResolution (dth/1000.,dph/1000.,dp_beam/100);          // dpx [rad],dpy [rad] ,dpz [relative]  [+-]
 
-  //if(!pionbeam.initBeamLine  ("par_files/pibeam_set6_mod_new_new.data",32)) return 1;               // transform input file and target element number
   if(!pionbeam.initBeamLine  ("par_files/pibeam_250414.data",32)) return 1;
-
-  // Args for adding detector: thicknes[cm], rad len[cm], segmentation[mm], distance relative to HADES [mm], acceptance flag, acceptance size x, y [mm]
-  // Detectors should be added in decreasing order of distance from hades target for the MS simulation to work properly
-  //pionbeam.addDetector("det1",    do_ms_pitrk1?0.03:0.0, 9.36, digi_pitrk, 0.78,     -17092.6, 2, 50., 50.);  // 17 du fichier
-  //pionbeam.addDetector("det2",    do_ms_pitrk2?0.03:0.0, 9.36, digi_pitrk, 0.78,     -5400.0,  2, 50., 50.); //
 
   // Locations along z compatible with the parameter file
   pionbeam.addDetector("det1",    do_ms_pitrk1?0.03:0.0, 9.36, digi_pitrk, 0.78,     -17209, 2, 50., 50.);  // 17 du fichier
   pionbeam.addDetector("det2",    do_ms_pitrk2?0.03:0.0, 9.36, digi_pitrk, 0.78,     -5442,  2, 50., 50.); //
-
-  pionbeam.addDetector("plane",   0.0,                  1.0,  false,      0.0,      -1300.0,  1, 60., 60.);
-
-  //pionbeam.addDetector("diamond", do_ms_diam?0.03:0.0,  18.8, digi_diam,  diam_seg, -400.0,   2, 7.1, 7.1); // -29mm, ->-170mm<-
-  //pionbeam.addDetector("diamond", do_ms_diam?0.03:0.0,  18.8, digi_diam,  3.0,      -400.0,   2, 7.1, 7.1);
-  //pionbeam.addDetector("diamond", 0.0,                  1.0, digi_diam,  diam_seg, -400.0,   2, 7.1, 7.1); // no MS in
-  //pionbeam.addDetector("diamond", 0.0,                  1.0, digi_diam,  diam_seg, -170.0,   2, 7.1, 7.1);
-  //pionbeam.addDetector("diamond", 0.0,                  1.0, digi_diam,  diam_seg, -170.0,   2, 7.1, 7.1);
+  //pionbeam.addDetector("plane",   0.0,                  1.0,  false,      0.0,      -1300.0,  1, 60., 60.);
   pionbeam.addDetector("diamond", do_ms_diam?0.03:0.0,    18.8, digi_diam,  3.0,      -170.0,   2, 7.1, 7.1);
-
-  pionbeam.addDetector("hades",   0.0,                  1.0,  false,      0.0,      0.0,      1, 6.0, 6.0);
-
+  pionbeam.addDetector("pe_targ",   0.0,                  1.0,  false,      0.0,      0.0,      1, 6.0, 6.0);
   pionbeam.addDetector("pidec",  -1.0,                  1.0,  false,      0,        100,      1, 1.e9, 1.e9 /*no acceptacne cut*/);
 
-  pionbeam.set_detector_names("det1", "det2", "diamond", "hades");
+  pionbeam.set_detector_names("det1", "det2", "diamond", "pe_targ");
   pionbeam.set_pion_decay_plane_name("pidec", do_pidec);
 
   vector<HBeamElement>& elements  = pionbeam.getElements();
@@ -205,6 +181,7 @@ int main( int argc, const char **argv )
   fout->mkdir("xth");
   fout->mkdir("yph");
   fout->mkdir("mom");
+  fout->mkdir("del");
   fout->mkdir("mom_x");
   fout->mkdir("mom_y");
   fout->mkdir("mom_z");
@@ -230,8 +207,15 @@ int main( int argc, const char **argv )
   for (unsigned int kk=0; kk<vsolution.size(); ++kk) cout << "vsolution["<< kk << "].fName= " << vsolution[kk].fName << endl;
 
   TTree *tt = new TTree("t","t");
-  int _ndet=ndet;    tt->Branch("ndet",&_ndet,"ndet/I");
+
   int _acc=0;      tt->Branch("acc",&_acc,"acc/I");
+  int _accDiam=0;      tt->Branch("accDiam",&_accDiam,"accDiam/I");
+  int _accTarg=0;      tt->Branch("accTarg",&_accTarg,"accTarg/I");
+
+  int _nel = (int) elements.size();     tt->Branch("nel",&_nel,"nel/I");
+  int _acce[_nel];   tt->Branch("accElem[nel]",&_acce,"accElem[nel]/I");
+
+  int _ndet=ndet;    tt->Branch("ndet",&_ndet,"ndet/I");
   float _p[ndet];    tt->Branch("p[ndet]",&_p,"p[ndet]/F");
   float _dp[ndet];   tt->Branch("dp[ndet]",&_dp,"dp[ndet]/F");
   float _x[ndet];    tt->Branch("x[ndet]",&_x,"x[ndet]/F");
@@ -272,9 +256,12 @@ int main( int argc, const char **argv )
   TH1F* h_mom_x[ndet], *h_momAcc_x[ndet];
   TH1F* h_mom_y[ndet], *h_momAcc_y[ndet];
   TH1F* h_mom_z[ndet], *h_momAcc_z[ndet];
+  TH1F* h_delta0, *h_delta0Acc;
 
   int indexOut = 0;
   int indexDet[2] = {0};
+  int indexDiam = 0;
+  int indexTarg = 0;
   double r_pos = 100.0;
   double r_ang = 20;
   for (UInt_t idet=0; idet< ndet; ++idet) {
@@ -282,6 +269,8 @@ int main( int argc, const char **argv )
     if (strcmp(det_name, "plane")) indexOut = idet;
     if (strcmp(det_name, "det1")) indexDet[0] = idet;
     if (strcmp(det_name, "det2")) indexDet[1] = idet;
+    if (strcmp(det_name, "diamond")) indexDiam = idet;
+    if (strcmp(det_name, "pe_targ")) indexTarg = idet;
     cout << Form("hxy_%s",det_name) << " " << Form("hxyAcc_%s",det_name) << endl;
 
     h_xy[idet] = new TH2F( Form("hxy_%s",det_name), Form("x vs. y [%s]; x[mm]; y[mm]; counts",det_name), 2000, -r_pos, r_pos, 2000, -r_pos, r_pos );
@@ -302,6 +291,8 @@ int main( int argc, const char **argv )
     h_mom_z[idet] = new TH1F( Form("hmom_z_%s",det_name), Form("p_{z} [%s]; p_{z} [GeV/c]; counts",det_name), 500, -0.10, 0.10 );
     h_momAcc_z[idet] = new TH1F( Form("hmomAcc_z_%s",det_name), Form("p_{z}, accepted [%s]; p_{z} [GeV/c]; counts",det_name), 500, -0.10, 0.10 );
   }
+  h_delta0 = new TH1F("hdelta0", "generated momentum offset ; delta [%]; counts", 500, -10., 10. );
+  h_delta0Acc = new TH1F("hdelta0Acc", "generated momentum offset accepted; delta [%]; counts", 500, -10., 10. );
 
   const int nelt = elements.size();
   TH1F* hAccElmnt = new TH1F("hAcceptanceElement", "hAcceptanceElement", nelt, 0, nelt );
@@ -339,7 +330,8 @@ int main( int argc, const char **argv )
   Int_t    sourceID           = -1 ; // no source
 
   FILE* asciiFile = 0;
-  asciiFile = fopen(outfile.Data(),"w");
+  // do not write ASCII file
+  //asciiFile = fopen(outfile.Data(),"w");
 
   Int_t ctEvents   = 0;
   Int_t ctTotalTry = 0;
@@ -426,6 +418,7 @@ int main( int argc, const char **argv )
 	      h_mom_y[i]->Fill(vPion   [i].Py());
 	      h_mom_z[i]->Fill(vPion   [i].Pz());
 	    }
+	    h_delta0->Fill(_dp[0]);
 
 	    for (unsigned int j=0; j<vms_history.size() && j<(unsigned int)nmspt; ++j) {
 	      TLorentzVector ms_pion;
@@ -474,36 +467,18 @@ int main( int argc, const char **argv )
 	      _rstat[j] = vsolution[j].fStatus;
 	    }
 
-	    //// compare initial momentum and solved momentum at hades target
-	    //TLorentzVector _b;
-	    //_b.SetXYZM(vhistory[0].fP.X(),vhistory[0].fP.Y(),vhistory[0].fP.Z(), 139.56995*0.001);
-	    //TLorentzVector _bs;
-	    //_bs.SetXYZM(vsolution[1].fP.X(),vsolution[1].fP.Y(),vsolution[1].fP.Z(), 139.56995*0.001);
-	    //cout << "Hades Target:  del= " << _b.P()  << " th= " << endl;
-	    //cout << "Hades T. Sol:  del= " << _bs.P() << " th= " << endl;
-
 	    Accepted = kTRUE;
 	    for(UInt_t i = 0 ; i < elements.size(); i++){
 	      hxElement->Fill(i,elements[i].fout[0]);
 	      hyElement->Fill(i,elements[i].fout[2]);
+	      _acce[i] = elements[i].fAccepted;
 	      if(!elements[i].fAccepted) Accepted = kFALSE;
 	      if(Accepted) hAccCumul->Fill(i);
 	    }
-
-	    //cout << "Ndet= " << ndet;
-	    //string cout_stuff;
-	    for (unsigned int idet=0; idet < detectors.size(); ++idet) {
-	      if (detectors[idet].decay_pion()) continue;
-	      if (detectors[idet].fName.EqualTo("plane")) continue;
-	      //cout << "idet " << idet << " name= " << detectors[idet].fName << " acc= " << detectors[idet].fAccepted << endl;
-	      TString s(detectors[idet].fName(0,4));
-	      //cout_stuff += Form(" (%d, %s, A=%s) ",idet, s.Data(), (detectors[idet].fAccepted?"OK":"NO"));
-	      if(!detectors[idet].fAccepted) Accepted = kFALSE;
-	    }
-	    //cout << cout_stuff << endl;
 	    _acc = Accepted?1:0;
 
-	    //cout << "OOOO accepted ctEvt= " << ctEvt << " ctTry= " << ctTry << " ctTotalTry= " << ctTotalTry << " acc=" << _acc << endl;
+	    _accDiam = detectors[indexDiam].fAccepted;
+	    _accTarg = detectors[indexTarg].fAccepted;
 
 	    if(Accepted){
 	      reDo = kFALSE;
@@ -574,10 +549,14 @@ int main( int argc, const char **argv )
 	      h_momAcc_y[i]->Fill(vPion   [i].Py());
 	      h_momAcc_z[i]->Fill(vPion   [i].Pz());
 	    }
+
+	    h_delta0Acc->Fill(_dp[0]);
+
 	    for(UInt_t i = 0 ; i < elements.size(); i++){
 	      hxElementTotalAcc->Fill(i,elements[i].fout[0]);
 	      hyElementTotalAcc->Fill(i,elements[i].fout[2]);
 	    }
+
 	  }
 	  //-----------------------------------------------------------
 
@@ -586,7 +565,10 @@ int main( int argc, const char **argv )
     } // end event loop
   //-----------------------------------------------------------
 
-  for(UInt_t i = 0 ; i < elements.size(); i++){
+  // Note: Since the last three elements change depending on the settings, we do not
+  // fill their acceptance in the acceptance histogram to avoid confusion. They have to
+  // be caluclated by using the variables addDiam and accTarg in the ntuple.
+  for(UInt_t i = 0 ; i < elements.size()-3; i++){
     hAccElmnt->SetBinContent(i+1,elements[i].fCtAll > 0 ? 100 - (elements[i].fCtFail/(Double_t)elements[i].fCtAll)*100 : 100);
   }
   hAccCumul->Scale(1./(elements[0].fCtAll/100.));
@@ -620,6 +602,10 @@ int main( int argc, const char **argv )
     h_momAcc_z[idet]->Write();
   }
 
+  fout->cd("del");
+  h_delta0->Write();
+  h_delta0Acc->Write();
+
   fout->cd("acceptance");
   hAccElmnt->Write();
   hAccCumul->Write();
@@ -627,6 +613,7 @@ int main( int argc, const char **argv )
   hyElement->Write();
   hxElementTotalAcc->Write();
   hyElementTotalAcc->Write();
+
   fout->cd("dir");
   hxDir->Write();
   hyDir->Write();
