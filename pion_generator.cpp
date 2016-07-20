@@ -256,7 +256,7 @@ int main( int argc, const char **argv )
   TH1F* h_mom_x[ndet], *h_momAcc_x[ndet];
   TH1F* h_mom_y[ndet], *h_momAcc_y[ndet];
   TH1F* h_mom_z[ndet], *h_momAcc_z[ndet];
-  TH1F* h_delta0, *h_delta0Acc;
+  TH1F* h_delta0, *h_delta0Acc, *h_delta0AccDiam, *h_delta0AccDiamTarg;
 
   int indexOut = 0;
   int indexDet[2] = {0};
@@ -292,7 +292,9 @@ int main( int argc, const char **argv )
     h_momAcc_z[idet] = new TH1F( Form("hmomAcc_z_%s",det_name), Form("p_{z}, accepted [%s]; p_{z} [GeV/c]; counts",det_name), 500, -0.10, 0.10 );
   }
   h_delta0 = new TH1F("hdelta0", "generated momentum offset ; delta [%]; counts", 500, -10., 10. );
-  h_delta0Acc = new TH1F("hdelta0Acc", "generated momentum offset accepted; delta [%]; counts", 500, -10., 10. );
+  h_delta0Acc = new TH1F("hdelta0Acc", "generated momentum offset accepted in Q1-Q9; delta [%]; counts", 500, -10., 10. );
+  h_delta0AccDiam = new TH1F("hdelta0AccDiam", "generated momentum offset accepted in Q1-Q9 + Diamond; delta [%]; counts", 500, -10., 10. );
+  h_delta0AccDiamTarg = new TH1F("hdelta0AccDiamTarg", "generated momentum offset accepted in Q1-Q9 + Diamond + Target; delta [%]; counts", 500, -10., 10. );
 
   const int nelt = elements.size();
   TH1F* hAccElmnt = new TH1F("hAcceptanceElement", "hAcceptanceElement", nelt, 0, nelt );
@@ -473,7 +475,7 @@ int main( int argc, const char **argv )
 	      hyElement->Fill(i,elements[i].fout[2]);
 	      _acce[i] = elements[i].fAccepted;
 	      if(!elements[i].fAccepted) Accepted = kFALSE;
-	      if(Accepted) hAccCumul->Fill(i);
+	      if( i < (elements.size()-3) && Accepted) hAccCumul->Fill(i);
 	    }
 	    _acc = Accepted?1:0;
 
@@ -551,7 +553,8 @@ int main( int argc, const char **argv )
 	    }
 
 	    h_delta0Acc->Fill(_dp[0]);
-
+	    if (_accDiam) h_delta0AccDiam->Fill(_dp[0]);
+	    if (_accDiam&_accTarg) h_delta0AccDiamTarg->Fill(_dp[0]);
 	    for(UInt_t i = 0 ; i < elements.size(); i++){
 	      hxElementTotalAcc->Fill(i,elements[i].fout[0]);
 	      hyElementTotalAcc->Fill(i,elements[i].fout[2]);
@@ -605,6 +608,8 @@ int main( int argc, const char **argv )
   fout->cd("del");
   h_delta0->Write();
   h_delta0Acc->Write();
+  h_delta0AccDiam->Write();
+  h_delta0AccDiamTarg->Write();
 
   fout->cd("acceptance");
   hAccElmnt->Write();
