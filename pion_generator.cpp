@@ -260,17 +260,13 @@ int main( int argc, const char **argv )
 
   int indexOut = 0;
   int indexDet[2] = {0};
-  int indexDiam = 0;
-  int indexTarg = 0;
   double r_pos = 100.0;
   double r_ang = 20;
   for (UInt_t idet=0; idet< ndet; ++idet) {
     const char *det_name = vhistory[idet].fName.Data();
-    if (strcmp(det_name, "plane")) indexOut = idet;
-    if (strcmp(det_name, "det1")) indexDet[0] = idet;
-    if (strcmp(det_name, "det2")) indexDet[1] = idet;
-    if (strcmp(det_name, "diamond")) indexDiam = idet;
-    if (strcmp(det_name, "pe_targ")) indexTarg = idet;
+    if (strcmp(det_name, "plane")==0) indexOut = idet;
+    if (strcmp(det_name, "det1")==0) indexDet[0] = idet;
+    if (strcmp(det_name, "det2")==0) indexDet[1] = idet;
     cout << Form("hxy_%s",det_name) << " " << Form("hxyAcc_%s",det_name) << endl;
 
     h_xy[idet] = new TH2F( Form("hxy_%s",det_name), Form("x vs. y [%s]; x[mm]; y[mm]; counts",det_name), 2000, -r_pos, r_pos, 2000, -r_pos, r_pos );
@@ -291,10 +287,20 @@ int main( int argc, const char **argv )
     h_mom_z[idet] = new TH1F( Form("hmom_z_%s",det_name), Form("p_{z} [%s]; p_{z} [GeV/c]; counts",det_name), 500, -0.10, 0.10 );
     h_momAcc_z[idet] = new TH1F( Form("hmomAcc_z_%s",det_name), Form("p_{z}, accepted [%s]; p_{z} [GeV/c]; counts",det_name), 500, -0.10, 0.10 );
   }
+
   h_delta0 = new TH1F("hdelta0", "generated momentum offset ; delta [%]; counts", 500, -10., 10. );
   h_delta0Acc = new TH1F("hdelta0Acc", "generated momentum offset accepted in Q1-Q9; delta [%]; counts", 500, -10., 10. );
   h_delta0AccDiam = new TH1F("hdelta0AccDiam", "generated momentum offset accepted in Q1-Q9 + Diamond; delta [%]; counts", 500, -10., 10. );
   h_delta0AccDiamTarg = new TH1F("hdelta0AccDiamTarg", "generated momentum offset accepted in Q1-Q9 + Diamond + Target; delta [%]; counts", 500, -10., 10. );
+
+  // These indexes are a bit different than the "history" vector indexes
+  int indexDiam = 0;
+  int indexTarg = 0;
+  for (int idet=0; idet < (int)ndet; ++idet) {
+    const char *det_name = detectors[idet].fName.Data();
+    if (strcmp(det_name, "diamond")==0) indexDiam = idet;
+    if (strcmp(det_name, "pe_targ")==0) indexTarg = idet;
+  }
 
   const int nelt = elements.size();
   TH1F* hAccElmnt = new TH1F("hAcceptanceElement", "hAcceptanceElement", nelt, 0, nelt );
@@ -363,10 +369,9 @@ int main( int argc, const char **argv )
 	  // create particles
 	  Bool_t reDo = kTRUE;
 	  Int_t ctTry = 0;
-	  while(reDo && ctTry < maxTry)
-	    {  // try as long a particle is accepted by the beam line
+	  while(reDo && ctTry < maxTry) {  // try as long a particle is accepted by the beam line
 
-	      if (ctTotalTry>=nEvents) break;
+	    if (ctTotalTry>=nEvents) break;
 
 	    _acc = 0;
 
@@ -380,7 +385,6 @@ int main( int argc, const char **argv )
 
 	    // make sure that the vectors have the same entries from event to event
 	    // They should also have the entries in the same order, but that's more cotly to verify for every event
-	    //cout << vhistory.size() << ", " <<  vms_history.size() << "," <<  vpidec_history.size() << ", " << vsolution.size() << endl;
 	    assert(ndet==vhistory.size());
 	    assert(nmspt==vms_history.size());
 	    assert(npidecpt==vpidec_history.size());
@@ -395,11 +399,6 @@ int main( int argc, const char **argv )
 
 	    //-----------------------------------------------------------
 	    // qa plots
-	    //double the_mrad = TMath::ATan2(vPion[0].Px(),vPion[0].Pz())*1000;
-	    //double phi_mrad = TMath::ATan2(vPion[0].Py(),vPion[0].Pz())*1000;
-
-	    //cout << " the_mrad = " << TMath::ATan2(vPion[0].Px(),vPion[0].Pz())*1000 << " Theta()*1000= " << vPion[0].Theta()*1000 << endl;
-	    //if (TMath::ATan2(vPion[0].Px(),vPion[0].Pz())!=vPion[0].Phi()) cout << "DISASTER!!!" << endl;
 
 	    hxDir->Fill(TMath::ATan2(vPion[0].Px(),vPion[0].Pz())*1000);
 	    hyDir->Fill(TMath::ATan2(vPion[0].Py(),vPion[0].Pz())*1000);
@@ -453,7 +452,6 @@ int main( int argc, const char **argv )
 	    for (_i_pi_dec=0; _i_pi_dec<nelt; ++_i_pi_dec) {
 	      if (elements[_i_pi_dec].fPid!=9) break;
 	    }
-	    //cout << _d_pi_dec << " => " << _i_pi_dec << endl;
 
 	    for (unsigned int j=0; j<vsolution.size() && j<(unsigned int)_nrec; ++j) {
 	      TLorentzVector rec_pion;
@@ -488,6 +486,34 @@ int main( int argc, const char **argv )
 
 	    tt->Fill();
 
+
+	    //-----------------------------------------------------------
+	    // qa plots
+	    if(Accepted){
+	      for(UInt_t i=0; i< vhistory.size();i++){
+
+		const double the_mrad = TMath::ATan2(vPion[i].Px(),vPion[i].Pz())*1000;
+		const double phi_mrad = TMath::ATan2(vPion[i].Py(),vPion[i].Pz())*1000;
+		h_xyAcc[i]->Fill(vhistory[i].fPos.X(),vhistory[i].fPos.Y());
+		h_xthAcc[i]->Fill(vhistory[i].fPos.X(), the_mrad);
+		h_yphAcc[i]->Fill(vhistory[i].fPos.Y(), phi_mrad);
+		h_momAcc[i]->Fill(vPion   [i].P());
+		h_momAcc_x[i]->Fill(vPion   [i].Px());
+		h_momAcc_y[i]->Fill(vPion   [i].Py());
+		h_momAcc_z[i]->Fill(vPion   [i].Pz());
+	      }
+
+	      h_delta0Acc->Fill(_dp[0]);
+	      if (_accDiam) h_delta0AccDiam->Fill(_dp[0]);
+	      if (_accDiam && _accTarg) h_delta0AccDiamTarg->Fill(_dp[0]);
+
+	      for(UInt_t i = 0 ; i < elements.size(); i++){
+		hxElementTotalAcc->Fill(i,elements[i].fout[0]);
+		hyElementTotalAcc->Fill(i,elements[i].fout[2]);
+	      }
+	    }
+	    //-----------------------------------------------------------
+
 	  } // end while redo
 
 	  if(ctTry == maxTry && !_acc){ //
@@ -497,11 +523,11 @@ int main( int argc, const char **argv )
 	    if(ctTryParticle == maxTry)  {
 	      cout<<"ERROR : Too many attempts. Outputfile will be corrupted (empty or to small event)"<<endl;
 	      if(asciiFile) fclose(asciiFile);
-
 	      return 1;
 	    }
 
 	    continue;
+
 	  }
 
 	  if(vhistory.size() < 3) {
@@ -523,7 +549,6 @@ int main( int argc, const char **argv )
 		      0.       ,vhistory[itarget].fPos.X(),vhistory[itarget].fPos.Y(),vhistory[itarget].fPos.Z(),
 		      vhistory[itarget].fPid , sourceID , parentID, weight);
 	      if(bWriteDetectors){
-
 		UInt_t ndet = sizeof(indexDet)/sizeof(Int_t);
 		for(UInt_t j = 0; j < ndet; j ++){   // write out wanted beam detector hits
 		  Int_t i = j;
@@ -534,33 +559,6 @@ int main( int argc, const char **argv )
 		}
 	      }
 	    }
-	  //-----------------------------------------------------------
-
-	  //-----------------------------------------------------------
-	  // qa plots
-	  if(Accepted){
-	    for(UInt_t i=0; i< vhistory.size();i++){
-
-	      const double the_mrad = TMath::ATan2(vPion[i].Px(),vPion[i].Pz())*1000;
-	      const double phi_mrad = TMath::ATan2(vPion[i].Py(),vPion[i].Pz())*1000;
-	      h_xyAcc[i]->Fill(vhistory[i].fPos.X(),vhistory[i].fPos.Y());
-	      h_xthAcc[i]->Fill(vhistory[i].fPos.X(), the_mrad);
-	      h_yphAcc[i]->Fill(vhistory[i].fPos.Y(), phi_mrad);
-	      h_momAcc[i]->Fill(vPion   [i].P());
-	      h_momAcc_x[i]->Fill(vPion   [i].Px());
-	      h_momAcc_y[i]->Fill(vPion   [i].Py());
-	      h_momAcc_z[i]->Fill(vPion   [i].Pz());
-	    }
-
-	    h_delta0Acc->Fill(_dp[0]);
-	    if (_accDiam) h_delta0AccDiam->Fill(_dp[0]);
-	    if (_accDiam&_accTarg) h_delta0AccDiamTarg->Fill(_dp[0]);
-	    for(UInt_t i = 0 ; i < elements.size(); i++){
-	      hxElementTotalAcc->Fill(i,elements[i].fout[0]);
-	      hyElementTotalAcc->Fill(i,elements[i].fout[2]);
-	    }
-
-	  }
 	  //-----------------------------------------------------------
 
 	} // end particle loop

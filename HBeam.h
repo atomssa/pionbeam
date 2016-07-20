@@ -1217,7 +1217,7 @@ Bool_t HBeam::transport_with_ms_and_pion_decay(HBeamParticle& part){
     TString tag;
     if (det.apply_ms()) {
       //cout << " ms! name= " << det.fName << " dist= " << det.fDistance << endl;
-      tag = "_POST_MS";
+      tag = "";
 
       //print_state("ms_state_in: ", state);
       apply_ms_kick(part.fP, det, state[1], state[3]);
