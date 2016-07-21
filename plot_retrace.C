@@ -39,10 +39,11 @@ void plot_retrace(TString fin="output/pidec0_ms001_ds11_xy0.5mm_dth10_dph50_dp6.
   const char* st[4] = {"x", "y", "th", "ph"};
   const char* sd[3] = {"d1", "d2", "dd"};
   const char* sdf[3] = {"Pion Tracker 1", "Pion Tracker 2", "Diamond Detector"};
+  t->SetAlias("del","dp[0]");
   for (int ii=0; ii < 4; ++ii) {
     t->SetAlias(Form("%sd1",st[ii]),Form("%s[1]",st[ii]));
     t->SetAlias(Form("%sd2",st[ii]),Form("%s[2]",st[ii]));
-    t->SetAlias(Form("%sdd",st[ii]),Form("%s[4]",st[ii]));
+    t->SetAlias(Form("%sdd",st[ii]),Form("%s[3]",st[ii]));
     if (bmsd1) t->SetAlias(Form("%sd1_ret",st[ii]),Form("%sms[%d]",st[ii],imsd1));
     if (bmsd2) t->SetAlias(Form("%sd2_ret",st[ii]),Form("%sms[%d]",st[ii],imsd2));
     if (bmsdd) t->SetAlias(Form("%sdd_ret",st[ii]),Form("%sms[%d]",st[ii],imsdd));
@@ -52,6 +53,7 @@ void plot_retrace(TString fin="output/pidec0_ms001_ds11_xy0.5mm_dth10_dph50_dp6.
   }
 
   TCanvas *tc_ret[3];
+  TCanvas *tc_ret2d[3];
   TCanvas *tc_pre[3];
   TH1F *hmsw[3][4];
 
@@ -66,6 +68,14 @@ void plot_retrace(TString fin="output/pidec0_ms001_ds11_xy0.5mm_dth10_dph50_dp6.
     for (int jj=0; jj < 4; ++jj) {
       tc_ret[ii]->cd(1+jj);
       t->Draw(Form("%s%s-%s%s_ret",st[jj],sd[ii],st[jj],sd[ii]));
+      gPad->SetLogy();
+    }
+
+    tc_ret2d[ii] = new TCanvas(Form("tc_ret2d_%s",sd[ii]),Form("Retrace Error: %s",sdf[ii]));
+    tc_ret2d[ii]->Divide(2,2);
+    for (int jj=0; jj < 4; ++jj) {
+      tc_ret2d[ii]->cd(1+jj);
+      t->Draw(Form("del:%s%s-%s%s_ret",st[jj],sd[ii],st[jj],sd[ii]));
     }
 
     tc_pre[ii] = new TCanvas(Form("tc_pre_%s",sd[ii]),Form("MS width: %s",sdf[ii]), 750, 10, 700, 500);

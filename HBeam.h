@@ -361,7 +361,7 @@ public:
 HBeamElement pi_det2;
 double target_fcn_det2[5];
 double final_fcn_det2[5];
-double sigma_fcn_det2[5] = {0.05, 0.1, 0.1, 0.1, 1};
+double sigma_fcn_det2[5] = {0.05, 0.1, 0.01, 0.1, 1};
 void fcn_det2(Int_t&, Double_t*, Double_t &f, Double_t *par, Int_t) {
   double beam[5] = {0.};
   for (int ii=0; ii < 4; ++ii) { beam[ii] = par[ii]; }
