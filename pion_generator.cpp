@@ -30,7 +30,7 @@ int main( int argc, const char **argv )
 {
 
   if (argc!=7&&argc!=10) {
-    cout << "Need minimum either 5 or 7 arguments. " << argc-1 << " given" << endl;
+    cout << "Need minimum of 6 arguments. " << argc-1 << " given" << endl;
     cout << "./gen Nevt[10000] dphi[50mrad] dth[10mrad] xyr[0.5mm] p[GeV] dp[6\%] [Digitzie?{00,01,10/11} [MS{00,01,10/11}] [PIDEC{0,1}]" << endl;
     return -1;
   }
@@ -56,6 +56,8 @@ int main( int argc, const char **argv )
   cout << "do_ms_pitrk1 = " << (do_ms_pitrk1?1:0) << "  do_ms_pitrk2 = " << (do_ms_pitrk2?1:0) << endl;
 
   const bool do_pidec = argc!=10?false:(atoi(argv[9])==1);
+
+  const bool do_reco = false;
 
   TString outfile=Form("output/pidec%d_ms%d%d%d_ds%d%d%s_xy%3.1fmm_dth%d_dph%d_dp%3.1f_p%4.2f.evt",
 		       do_pidec?1:0, do_ms_pitrk1?1:0, do_ms_pitrk2?1:0, do_ms_diam?1:0, digi_pitrk?1:0, digi_diam?1:0,
@@ -188,7 +190,7 @@ int main( int argc, const char **argv )
   fout->mkdir("acceptance");
   fout->mkdir("dir");
 
-  vector<HBeamParticle>& vhistory = pionbeam.newParticle();
+  vector<HBeamParticle>& vhistory = pionbeam.newParticle(do_reco);
   const unsigned int ndet = vhistory.size();
   vector<HBeamParticle>& vms_history = pionbeam.get_ms_history();
   const unsigned int nmspt = vms_history.size();
@@ -378,7 +380,7 @@ int main( int argc, const char **argv )
 	    ctTotalTry ++;
 	    ctTry++;
 
-	    vector<HBeamParticle>& vhistory = pionbeam.newParticle();
+	    vector<HBeamParticle>& vhistory = pionbeam.newParticle(do_reco);
 	    vector<HBeamParticle>& vms_history = pionbeam.get_ms_history();
 	    vector<HBeamParticle>& vpidec_history = pionbeam.get_pidec_history();
 	    vector<HBeamParticle>& vsolution = pionbeam.get_solution();

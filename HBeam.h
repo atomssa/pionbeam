@@ -358,29 +358,30 @@ public:
 
 };
 
-HBeamElement pi_det2;
-double target_fcn_det2[5];
-double final_fcn_det2[5];
-double sigma_fcn_det2[5] = {0.05, 0.1, 0.01, 0.1, 1};
-void fcn_det2(Int_t&, Double_t*, Double_t &f, Double_t *par, Int_t) {
+HBeamElement det_back_prop;
+double target_fcn_back_prop[5];
+double final_fcn_back_prop[5];
+double sigma_fcn_back_prop[5] = {0.05, 0.1, 0.01, 0.01, 1};
+
+void fcn_back_prop(Int_t&, Double_t*, Double_t &f, Double_t *par, Int_t) {
   double beam[5] = {0.};
   for (int ii=0; ii < 4; ++ii) { beam[ii] = par[ii]; }
-  beam[4] = target_fcn_det2[4];
-  for (int ii=0; ii < 5; ++ii) { final_fcn_det2[ii] = 0.0; }
+  beam[4] = target_fcn_back_prop[4];
+  for (int ii=0; ii < 5; ++ii) { final_fcn_back_prop[ii] = 0.0; }
 
   for(Int_t i = 0; i < 5; i ++){
     for(Int_t j = 0; j < 5; j ++){
-      final_fcn_det2[i] += pi_det2.Tij[i][j] * beam[j];
+      final_fcn_back_prop[i] += det_back_prop.Tij[i][j] * beam[j];
     }
     for(Int_t j = 0; j < 5; j ++){
       for(Int_t k = j; k < 5; k ++){
-  	final_fcn_det2[i] += pi_det2.Tijk[i][j][k] * beam[j] * beam[k];
+  	final_fcn_back_prop[i] += det_back_prop.Tijk[i][j][k] * beam[j] * beam[k];
       }
     }
   }
   double chisq = 0;
   for (int ii=0; ii < 4; ++ii) {
-    double delta = (final_fcn_det2[ii]-target_fcn_det2[ii])/sigma_fcn_det2[ii];
+    double delta = (final_fcn_back_prop[ii]-target_fcn_back_prop[ii])/sigma_fcn_back_prop[ii];
     chisq += delta*delta;
   }
   f = chisq;
@@ -535,7 +536,7 @@ public:
     void                     setBeamResolution (Double_t dpx = 0.001,Double_t dpy = 0.005,Double_t dpz = 0.06);
     void                     setBeamProfile    (Double_t sigma_beam = 0.05,Double_t flat_radius = 0);
     Bool_t                   initBeamLine      (TString filename,Int_t targetElementNum ,Bool_t debug = kFALSE);
-    vector<HBeamParticle>&   newParticle       ();
+    vector<HBeamParticle>&   newParticle       (bool);
     void                     printBeamLine     (Bool_t printAll=kFALSE);
     void                     printBeamProfile  ();
     void                     printDetectors    ();
@@ -552,7 +553,7 @@ public:
     void   do_pion_decay(HBeamParticle &part, double &mom, double &dthe, double &dphi);
     void   back_propagate(HBeamParticle &part, const HBeamElement &det, double *state, double *back_prop);
     void   back_propagate(const double &dp, const HBeamElement &det, double *state, double *back_prop);
-    void   back_propagate_minuit(const HBeamElement &det, double *state, double *back_prop);
+  void   back_propagate_minuit(const HBeamElement &det, double *state, double *back_prop);
     void  print_elements();
     void  print_detectors();
 
@@ -614,7 +615,7 @@ HBeam::HBeam()
   gMinuit->SetPrintLevel(-1);
 
   gMinuitBp = new TMinuit(5);
-  gMinuitBp->SetFCN(fcn_det2);
+  gMinuitBp->SetFCN(fcn_back_prop);
   gMinuitBp->SetPrintLevel(-1);
 
   gen_func = new TF1("pol2","[0]+x*x*[1]",-1.1999999,1.19999999);
@@ -1090,26 +1091,82 @@ void HBeam::do_pion_decay(HBeamParticle &part, double &mom, double &the, double 
 
 }
 
+/**
+ * Implementation of back-propagation iteratively using MINUIT
+ * The Minuit solution of the back-propagation is more robust than the Matrix based solution
+ * implemented in the function back_propagate. However in both cases, the solution fails to
+ * work with sufficient precision locally for values of delta~3.44 +/- 0.15 on pion tracker #2.
+ * This is a result of pure conicidence: for these values of delta, the forward propagation matrix
+ * becomes almost singluar (determinant close to zero) resulting in an inverse matrix with
+ * significant numerical errors. The miniut solution improves the errors but they turn out to
+ * be sufficiently still significant to be visible on the acceptance vs. delta figure.
+ * Fortunately, the fraction of affected events is less than per mill level.
+ */
+double back_prop_minuit_start[5] = {0.};
 void HBeam::back_propagate_minuit(const HBeamElement &det, double *state, double *back_prop) {
 
-  for (int ii=0; ii < 5; ++ii) {target_fcn_det2[ii] = state[ii];}
-  pi_det2.copy_transport_matrix(det);
+  for (int ii=0; ii < 5; ++ii) {target_fcn_back_prop[ii] = state[ii];}
+  det_back_prop.copy_transport_matrix(det);
 
   Double_t step[5] = {0.0};
-  const Double_t nominal[5] = { 0.5, 10, 0.05, 50, 6.};
+  const Double_t nominal[5] = { 0.5, 10, 0.5, 50, 6.};
   const Double_t grid_size = 1000;
   for (int i=0; i<5; ++i) { step[i]= nominal[i]/grid_size; }
 
-  gMinuitBp->mnparm(0, "x0",  0.0, step[0], 0, 0, ierflg);
-  gMinuitBp->mnparm(1, "th0", 0.0, step[1], 0, 0, ierflg);
-  gMinuitBp->mnparm(2, "y0",  0.0, step[2], 0, 0, ierflg);
-  gMinuitBp->mnparm(3, "ph0", 0.0, step[3], 0, 0, ierflg);
-  //gMinuitBp->mnparm(4, "del", 0.0, step[4], 0, 0, ierflg);
-  arglist[0] = 5000;
-  arglist[1] = 0.1;
-  gMinuitBp->mnexcm("SIMPLEX", arglist, 2, ierflg);
-  //gMinuitBp->mnexcm("SEE", arglist, 2, ierflg);
-  gMinuitBp->mnexcm("MIGRAD", arglist, 2, ierflg);
+  gMinuitBp->mnparm(0, "x0",  back_prop_minuit_start[0], step[0], 0, 0, ierflg);
+  gMinuitBp->mnparm(1, "th0", back_prop_minuit_start[1], step[1], 0, 0, ierflg);
+  gMinuitBp->mnparm(2, "y0",  back_prop_minuit_start[2], step[2], 0, 0, ierflg);
+  gMinuitBp->mnparm(3, "ph0", back_prop_minuit_start[3], step[3], 0, 0, ierflg);
+
+  arglist[0] = 10000;
+  arglist[1] = 0.01;
+
+  //gMinuitBp->mnexcm("SIMPLEX", arglist, 2, ierflg);
+  //gMinuitBp->mnexcm("MIGRAD", arglist, 2, ierflg);
+
+  // MINIMIZE = MIGRAD [ + SIMPLES + MIGRAD if 1st MIGRAD fails]
+  gMinuitBp->mnexcm("MINIMIZE", arglist, 2, ierflg);
+  if (ierflg!=0) cout << "Fit not converging. Delta=" << state[4] << endl;
+
+  // Below is an un-succesful attempt to solve the problem at |delta|~3.44 on PionTracker2
+  ////bool troublesome = 3.3 < abs(state[4]) && abs(state[4]) < 3.6;
+  //bool troublesome = false;
+  //if (troublesome&&det.fName.EqualTo(det2_name)) {
+  //
+  //  //for (int ii=0; ii < 5; ++ii) { sigma_fcn_back_prop[ii] = sigma_fcn_back_prop_det2[ii]; }
+  //  //
+  //  //gMinuitBp->mnparm(0, "x0",  back_prop_minuit_start[0], step[0], 0, 0, ierflg);
+  //  //gMinuitBp->mnparm(1, "th0", back_prop_minuit_start[1], step[1], 0, 0, ierflg);
+  //  //gMinuitBp->mnparm(2, "y0",  back_prop_minuit_start[2], step[2], 0, 0, ierflg);
+  //  //gMinuitBp->mnparm(3, "ph0", back_prop_minuit_start[3], step[3], 0, 0, ierflg);
+  //
+  //  //arglist[0] = 1000;
+  //  //gMinuitBp->mnexcm("SEEK",arglist, 1, ierflg);
+  //
+  //  //arglist[0] = 100000;
+  //  //arglist[1] = 0.05;
+  //  //gMinuitBp->mnexcm("MINIMIZE", arglist, 2, ierflg);
+  //  //if (ierflg!=0) cout << "Re-Fit not converging. Delta=" << state[4] << endl;
+  //
+  //  arglist[0] = 10000;
+  //  gMinuitBp->mnexcm("IMPROVE", arglist, 1, ierflg);
+  //
+  //  //arglist[0] = 1000000;
+  //  //arglist[1] = 0.05;
+  //  //gMinuitBp->mnexcm("MINIMIZE", arglist, 2, ierflg);
+  //  //if (ierflg!=0) cout << "Re-Fit not converging. Delta=" << state[4] << endl;
+  //
+  //  //Double_t error = 0.0;
+  //  //for (int i=0; i<4; ++i) gMinuitBp->GetParameter(i, back_prop[i], error);
+  //  //back_prop[4] = state[4];
+  //  //
+  //  //double tmp_fwd[5] = {0.};
+  //  //propagate_to_det(det, &back_prop[0], &tmp_fwd[0]);
+  //  //if (!retrace_match(state, tmp_fwd)) {
+  //  //
+  //  //}
+  //
+  //}
 
   Double_t error = 0.0;
   for (int i=0; i<4; ++i) gMinuitBp->GetParameter(i, back_prop[i], error);
@@ -1176,6 +1233,9 @@ Bool_t HBeam::transport_with_ms_and_pion_decay(HBeamParticle& part){
 
   // convert to transport units before applying transport matrices
   for (int i=0; i<5; ++i) init_state[i] *= ffromPluto[i];
+
+  // set start point for minuit backtracking.
+  for (int i=0; i<5; ++i) back_prop_minuit_start[i] = init_state[i];
 
   // Propagate to each detector where MS can occur (fXoX0!=0), MS smear and propagate
   // back to the origin. Detectors need to be sorted in order of decreasing distance from
@@ -1556,6 +1616,9 @@ void HBeam::print_state(TString tag, double *state) {
 
 void HBeam::calc_error(double *state_d1, const HBeamElement &det1, const HBeamElement &det2, double &xd2e, double &yd2e) {
 
+  // set start point for minuit minmization in backtracking.
+  for (int i=0; i<5; ++i) back_prop_minuit_start[i] = 0.0;
+
   //double state_d1[5] = {xd1, 0, yd1, 0, 0};
   double back_prop[5] = {0.0};
   //print_state("d1: ", state_d1);
@@ -1766,7 +1829,7 @@ void HBeam::print_dets(TString tag) {
   cout << endl;
 }
 
-vector <HBeamParticle>& HBeam::newParticle()
+vector <HBeamParticle>& HBeam::newParticle(bool do_reco = false)
 {
 
   HBeamParticle part(fBeam);
@@ -1835,11 +1898,12 @@ vector <HBeamParticle>& HBeam::newParticle()
   part.fAccepted = accepted;
   fhistory.push_back(part);
 
-  // solve_state needs the order of detectors to be restored!!
-  get_pion_decay_plane().set_distance(felements[fnum_target], 100);
-  std::sort(fdetectors.begin(),fdetectors.end(),sort_by_dist_from_prod);
-
-  solve_state();
+  if (do_reco) {
+    //solve_state needs the order of detectors to be restored!!
+    get_pion_decay_plane().set_distance(felements[fnum_target], 100);
+    std::sort(fdetectors.begin(),fdetectors.end(),sort_by_dist_from_prod);
+    solve_state();
+  }
   return fhistory;
 
 }

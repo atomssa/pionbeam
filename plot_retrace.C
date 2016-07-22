@@ -56,7 +56,8 @@ void plot_retrace(TString fin="output/pidec0_ms001_ds11_xy0.5mm_dth10_dph50_dp6.
   TCanvas *tc_ret2d[3];
   TCanvas *tc_pre[3];
   TH1F *hmsw[3][4];
-
+  TString cut = "";
+  //TString cut = "acc&&accDiam&&accTarg";
   for (int ii=0; ii < 3; ++ii) {
 
     if (ii==0&&!bmsd1) continue;
@@ -67,7 +68,7 @@ void plot_retrace(TString fin="output/pidec0_ms001_ds11_xy0.5mm_dth10_dph50_dp6.
     tc_ret[ii]->Divide(2,2);
     for (int jj=0; jj < 4; ++jj) {
       tc_ret[ii]->cd(1+jj);
-      t->Draw(Form("%s%s-%s%s_ret",st[jj],sd[ii],st[jj],sd[ii]));
+      t->Draw(Form("%s%s-%s%s_ret",st[jj],sd[ii],st[jj],sd[ii]),cut);
       gPad->SetLogy();
     }
 
@@ -75,14 +76,14 @@ void plot_retrace(TString fin="output/pidec0_ms001_ds11_xy0.5mm_dth10_dph50_dp6.
     tc_ret2d[ii]->Divide(2,2);
     for (int jj=0; jj < 4; ++jj) {
       tc_ret2d[ii]->cd(1+jj);
-      t->Draw(Form("del:%s%s-%s%s_ret",st[jj],sd[ii],st[jj],sd[ii]));
+      t->Draw(Form("del:%s%s-%s%s_ret",st[jj],sd[ii],st[jj],sd[ii]),cut);
     }
 
     tc_pre[ii] = new TCanvas(Form("tc_pre_%s",sd[ii]),Form("MS width: %s",sdf[ii]), 750, 10, 700, 500);
     tc_pre[ii]->Divide(2,2);
     for (int jj=0; jj < 4; ++jj) {
       tc_pre[ii]->cd(1+jj);
-      t->Draw(Form("%s%s-%s%s_pre>>hmsw_%s_%s",st[jj],sd[ii],st[jj],sd[ii],st[jj],sd[ii]));
+      t->Draw(Form("%s%s-%s%s_pre>>hmsw_%s_%s",st[jj],sd[ii],st[jj],sd[ii],st[jj],sd[ii]),cut);
       if (jj>1) {
 	hmsw[ii][jj] = (TH1F*)gDirectory->Get(Form("hmsw_%s_%s",st[jj],sd[ii]));
 	hmsw[ii][jj]->Fit("gaus");
@@ -90,5 +91,9 @@ void plot_retrace(TString fin="output/pidec0_ms001_ds11_xy0.5mm_dth10_dph50_dp6.
     }
 
   }
+
+  TCanvas *tc_acc = new TCanvas("tc_acc","Acceptance");
+  tc_acc->cd();
+  t->Draw("dp[0]","acc&&accDiam&&accTarg");
 
 }
